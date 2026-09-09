@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>플랜두씨 다이어리</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#FFFBF5; --card:#FFFFFF; --ink:#4A4238; --muted:#8A8272; --faint:#B8AFA0;
+    --pill-bg:#F1EBDE; --pill-active:#4A4238; --pill-active-fg:#FFFBF5;
+    --mint-bg:#DCF0E4; --mint-fg:#3F7A5D;
+    --lavender-bg:#E4DEF5; --lavender-fg:#6B5B95;
+    --peach-bg:#FCE4DC; --peach-fg:#C4623A;
+    --butter-bg:#FBF0C8; --butter-fg:#A98A1E;
+    --today-bg:#FFF3EC; --today-ring:#F3B99A;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Apple SD Gothic Neo','Malgun Gothic',-apple-system,sans-serif;
+  }
+  .wrap{max-width:640px; margin:0 auto; padding:20px;}
+  .notice{
+    background:var(--peach-bg); color:var(--peach-fg); border-radius:14px;
+    padding:12px 14px; font-size:13px; line-height:1.6; margin-bottom:14px;
+  }
+  .setup-warning{
+    background:var(--butter-bg); color:var(--butter-fg); border-radius:14px;
+    padding:12px 14px; font-size:12px; line-height:1.6; margin-bottom:14px;
+  }
+  .tabs{display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap;}
+  .tab{padding:8px 16px; font-size:12px; border-radius:999px; cursor:pointer; background:var(--pill-bg); color:var(--muted); border:none;}
+  .tab.active{background:var(--pill-active); color:var(--pill-active-fg);}
+  .stat-row{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px;}
+  .stat-card{background:var(--card); border-radius:16px; padding:12px 14px; box-shadow:0 2px 10px rgba(0,0,0,0.04);}
+  .stat-icon{width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:6px;}
+  .stat-label{font-size:11px; color:var(--muted);}
+  .stat-value{font-size:16px;}
+  .page{background:var(--card); border-radius:16px; padding:16px; box-shadow:0 2px 10px rgba(0,0,0,0.04);}
+  .cal-grid{display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); grid-auto-rows:72px; gap:4px;}
+  .cal-dow{font-size:11px; color:var(--faint); text-align:center; padding-bottom:2px;}
+  .cal-cell{height:72px; overflow:hidden; box-sizing:border-box; border-radius:10px; padding:4px 5px; background:#FAF7F0; cursor:pointer;}
+  .cal-cell.today{background:var(--today-bg); box-shadow:inset 0 0 0 1.5px var(--today-ring);}
+  .cal-daynum{font-size:11px; color:var(--muted); line-height:14px;}
+  .cal-daynum.today{color:var(--peach-fg);}
+  .chip{display:flex; align-items:center; justify-content:space-between; font-size:9px; line-height:14px; padding:0 4px; border-radius:6px; margin-top:2px; overflow:hidden;}
+  .chip span{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
+  .goal-panel{background:#FAF7F0; border-radius:14px; padding:12px 14px; margin-bottom:14px;}
+  .goal-row{margin-bottom:8px;}
+  .goal-row:last-child{margin-bottom:0;}
+  .goal-label{display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;}
+  .goal-bar-bg{background:#EFE6D6; border-radius:3px; height:6px; overflow:hidden;}
+  .goal-bar-fill{height:100%;}
+  input, select, textarea{
+    font-family:inherit; font-size:12px; padding:8px 12px; border:none; border-radius:999px;
+    background:#FAF7F0; color:var(--ink);
+  }
+  textarea{border-radius:14px; width:100%; resize:vertical;}
+  .btn{display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:8px 16px; border-radius:999px; cursor:pointer; border:none; font-family:inherit;}
+  .btn-dark{background:var(--pill-active); color:var(--pill-active-fg);}
+  .btn-ghost{background:#FAF7F0; color:var(--muted);}
+  .todo-row{display:flex; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid var(--pill-bg);}
+  .todo-check{cursor:pointer; width:18px; height:18px; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .info-card{background:#FAF7F0; border-radius:14px; padding:12px 14px; font-size:12px; line-height:2; margin-bottom:10px;}
+  .info-card .k{color:var(--faint);}
+  .plan-color-dot{width:8px; height:8px; border-radius:50%; flex-shrink:0;}
+  .review-stats{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:14px;}
+  .review-stat{cursor:pointer; border-radius:12px; padding:10px; text-align:center;}
+  .review-stat .num{font-size:18px;}
+  .review-stat .lbl{font-size:10px;}
+  .hidden{display:none;}
+  .row{display:flex; gap:8px; align-items:center;}
+  .grow{flex:1; min-width:0;}
+  .small-muted{font-size:11px; color:var(--faint);}
+  .field-group{margin-bottom:8px;}
+  .field-group label{display:block; font-size:11px; color:var(--muted); margin-bottom:4px;}
+  .field-group input, .field-group select{width:100%;}
+  a{color:var(--peach-fg);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="notice">
+    지금은 로그인이 없어 링크를 아는 사람은 누구나 볼 수 있습니다. 남이 봐도 괜찮은 내용만 넣으세요.
+  </div>
+
+  <div id="setupWarning" class="setup-warning hidden">
+    Supabase 연결이 안 되어 있어요. 이 파일 맨 아래 <code>SUPABASE_URL</code> / <code>SUPABASE_ANON_KEY</code>를 채워 넣어주세요.
+  </div>
+
+  <div class="tabs">
+    <button class="tab" id="tab-calendar" onclick="switchTab('calendar')">달력</button>
+    <button class="tab" id="tab-records" onclick="switchTab('records')">상세기록</button>
+    <button class="tab" id="tab-review" onclick="switchTab('review')">돌아보기</button>
+    <button class="tab" id="tab-settings" onclick="switchTab('settings')">설정</button>
+  </div>
+
+  <div class="page" id="page">불러오는 중...</div>
+
+</div>
+
+<script>
+  // ==== 여기에 본인 Supabase 프로젝트 정보를 채워 넣으세요 ====
+  const SUPABASE_URL = "https://YOUR_PROJECT.supabase.co";
+  const SUPABASE_ANON_KEY = "YOUR_ANON_KEY";
+  // =========================================================
+</script>
+<script src="app.js"></script>
+</body>
+</html>

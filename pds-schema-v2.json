@@ -1,0 +1,44 @@
+{
+  "contract_version": "2.0.0",
+  "timezone_policy": {
+    "storage": "UTC (timestamptz)",
+    "display": "Asia/Seoul",
+    "week_start": "Monday (ISO week)",
+    "date_fields": "date 타입(period_start/end, due_date)은 시간대 없이 저장, 지연 판정·주간/월간 집계 시에만 KST 오늘 날짜와 비교"
+  },
+  "tables": {
+    "plans": {
+      "columns": ["id", "title", "period_start", "period_end", "priority", "success_criteria", "estimated_hours", "cadence", "target_count", "color", "created_at", "updated_at", "carried_from_review_id"],
+      "note": "UPDATE 직전 값이 trigger(save_plan_history)로 plan_history에 저장됨. cadence='range'면 target_count 미사용, 'weekly'/'monthly'면 그 기간 동안 목표 횟수."
+    },
+    "plan_history": {
+      "columns": ["history_id", "plan_id", "title", "period_start", "period_end", "priority", "success_criteria", "estimated_hours", "recorded_at"]
+    },
+    "todos": {
+      "columns": ["id", "plan_id", "title", "status", "due_date", "priority", "tags", "estimated_hours", "created_at", "updated_at", "completed_at"],
+      "units": { "estimated_hours": "시간(hour)" }
+    },
+    "execution_logs": {
+      "columns": ["id", "todo_id", "started_at", "ended_at", "actual_minutes", "blocker_reason", "created_at"],
+      "units": { "actual_minutes": "분(minute) — 집계 시 60으로 나눠 시간 단위로 통일" },
+      "idempotency": "완료 처리는 todos.status='in_progress' 조건부 UPDATE로만 수행, 성공(1 row)했을 때만 execution_logs insert. unique(todo_id, ended_at) 제약으로 이중 방어."
+    },
+    "reviews": {
+      "columns": ["id", "plan_id", "period_start", "period_end", "improvement_note", "created_at"]
+    }
+  },
+  "relations": [
+    "todos.plan_id -> plans.id",
+    "execution_logs.todo_id -> todos.id",
+    "plan_history.plan_id -> plans.id",
+    "reviews.plan_id -> plans.id",
+    "plans.carried_from_review_id -> reviews.id"
+  ],
+  "aggregation_rules": {
+    "plan_count": "count(todos where plan_id = :id)  -- delete를 실제 삭제로 쓰므로 살아있는 행이 곧 지우지 않은 행",
+    "done_count": "count(todos where plan_id = :id and status='done')",
+    "delayed_count": "count(todos where plan_id = :id and status<>'done' and due_date < (now() at time zone 'Asia/Seoul')::date)",
+    "blocked_count": "count(distinct todo_id) from execution_logs where blocker_reason is not null and blocker_reason <> ''",
+    "estimated_vs_actual": "estimated = sum(todos.estimated_hours); actual = sum(execution_logs.actual_minutes)/60.0; diff = actual - estimated; 없으면 0"
+  }
+}
