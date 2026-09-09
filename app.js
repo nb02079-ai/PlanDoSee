@@ -703,7 +703,8 @@ function computeStreakAndCounts(logs) {
 }
 
 function renderHeatmapGrid(countMap) {
-  const weeks = 12;
+  const weeks = 8;
+  const cellSize = 20;
   const today = kstNow();
   const todayMonday = startOfWeekMonday(today);
   const startMonday = new Date(todayMonday);
@@ -723,10 +724,10 @@ function renderHeatmapGrid(countMap) {
         else if (count === 2) bg = '#8FC79E';
         else if (count === 1) bg = 'var(--mint-bg)';
       }
-      cells += `<div title="${ds} · ${count}건" style="width:12px; height:12px; border-radius:2px; background:${bg};"></div>`;
+      cells += `<div title="${ds} · ${count}건" style="width:${cellSize}px; height:${cellSize}px; border-radius:4px; background:${bg};"></div>`;
     }
   }
-  return `<div style="display:grid; grid-auto-flow:column; grid-template-rows:repeat(7,12px); gap:3px;">${cells}</div>`;
+  return `<div style="display:grid; grid-auto-flow:column; grid-template-rows:repeat(7,${cellSize}px); gap:5px;">${cells}</div>`;
 }
 
 function renderStreakPanel(logs) {
@@ -734,7 +735,7 @@ function renderStreakPanel(logs) {
   return `<div class="info-card" style="margin-bottom:14px;">
     <div style="font-size:20px; margin-bottom:10px;">${streak}<span style="font-size:12px; color:var(--muted);"> 일 연속 완료</span></div>
     ${renderHeatmapGrid(countMap)}
-    <div class="small-muted" style="margin-top:8px;">최근 12주</div>
+    <div class="small-muted" style="margin-top:8px;">최근 8주</div>
   </div>`;
 }
 
