@@ -120,8 +120,9 @@
     background:var(--bg); padding:20px; cursor:pointer;
     transition:opacity .35s ease, transform .35s ease;
   }
+  .cover-card-wrap{ position:relative; width:100%; max-width:340px; }
   .cover-card{
-    position:relative; width:100%; max-width:340px; min-height:400px;
+    position:relative; width:100%; min-height:400px;
     background:linear-gradient(160deg, #2E2B27, #201D1A);
     border-radius:14px; padding:60px 30px 40px;
     box-shadow:0 10px 30px rgba(0,0,0,0.25); overflow:hidden;
@@ -129,21 +130,35 @@
   .cover-badge{
     position:absolute; top:-14px; left:50%; transform:translateX(-50%) rotate(-4deg);
     background:#EE7B6A; color:#FFFFFF; font-weight:700; font-size:13px;
-    padding:6px 18px; border-radius:999px 999px 999px 0; box-shadow:0 3px 8px rgba(0,0,0,0.2);
+    padding:6px 18px; border-radius:999px; box-shadow:0 3px 8px rgba(0,0,0,0.2);
+    z-index:2; white-space:nowrap;
   }
-  .cover-title{ text-align:center; margin-top:70px; font-size:30px; letter-spacing:4px; color:#D9CBA8; text-shadow:0 1px 0 rgba(0,0,0,0.5); }
-  .cover-subtitle{ text-align:center; font-size:10px; letter-spacing:3px; color:#C9BB98; margin-top:8px; text-shadow:0 1px 0 rgba(0,0,0,0.4); }
-  .cover-year{ text-align:center; margin-top:150px; font-size:9px; letter-spacing:2px; color:#9C9184; }
-  .cover-spineshadow{ position:absolute; left:0; top:0; bottom:0; width:14px; background:linear-gradient(90deg, rgba(0,0,0,0.35), transparent); }
+  .cover-card-wrap{ position:relative; width:100%; max-width:640px; }
+  .cover-card{
+    position:relative; width:100%; min-height:560px;
+    background:linear-gradient(160deg, #2E2B27, #201D1A);
+    border-radius:18px; padding:70px 34px 44px;
+    box-shadow:0 14px 34px rgba(0,0,0,0.28); overflow:hidden;
+  }
+  .cover-badge{
+    position:absolute; top:-16px; left:50%; transform:translateX(-50%) rotate(-3deg);
+    background:#EE7B6A; color:#FFFFFF; font-weight:700; font-size:14px;
+    padding:7px 22px; border-radius:999px; box-shadow:0 3px 8px rgba(0,0,0,0.2);
+    z-index:2; white-space:nowrap;
+  }
+  .cover-title{ text-align:center; margin-top:90px; font-size:36px; letter-spacing:5px; color:#D9CBA8; text-shadow:0 1px 0 rgba(0,0,0,0.5); }
+  .cover-subtitle{ text-align:center; font-size:11px; letter-spacing:4px; color:#C9BB98; margin-top:10px; text-shadow:0 1px 0 rgba(0,0,0,0.4); }
+  .cover-year{ text-align:center; margin-top:190px; font-size:10px; letter-spacing:2px; color:#9C9184; }
+  .cover-spineshadow{ position:absolute; left:0; top:0; bottom:0; width:16px; background:linear-gradient(90deg, rgba(0,0,0,0.35), transparent); }
   .cover-hint{ text-align:center; font-size:11px; color:var(--faint); margin-top:10px; }
 </style>
 </head>
 <body>
 <div class="cover-overlay" id="coverOverlay" onclick="openCover()">
-  <div>
+  <div class="cover-card-wrap">
+    <div class="cover-badge">2026</div>
     <div class="cover-card">
       <div class="cover-spineshadow"></div>
-      <div class="cover-badge">2026</div>
       <div class="cover-title">P·D·S</div>
       <div class="cover-subtitle">PLAN · DO · SEE</div>
       <div class="cover-year">1 YEAR DIARY</div>
