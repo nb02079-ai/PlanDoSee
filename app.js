@@ -32,6 +32,8 @@ let state = {
   periodGroups: [],             // [{plan, items:[todo,...]}]
   periodReviewId: null,
   periodReviewNote: '',
+  allLogs: [],           // 기록 탭: 전체 실행기록(할일/계획 join)
+  logsPlanFilter: 'all', // 기록 탭 필터
 };
 
 function initSupabase() {
@@ -130,6 +132,14 @@ async function loadAllTodosForMonth() {
   state.allTodosForMonth = data || [];
 }
 
+async function loadAllLogs() {
+  const { data, error } = await sb.from('execution_logs')
+    .select('*, todos(title, plan_id, plans(title,color))')
+    .order('ended_at', { ascending: false });
+  if (error) { console.error(error); state.allLogs = []; return; }
+  state.allLogs = data || [];
+}
+
 // ---------- CRUD ----------
 async function createPlan(payload) {
   const { data, error } = await sb.from('plans').insert(payload).select().single();
@@ -197,6 +207,7 @@ async function refreshAndRender() {
   if (!sb) { render(); return; }
   if (state.tab === 'calendar') await loadAllTodosForMonth();
   if (state.tab === 'todos') { await loadTodosForCurrentPlan(); }
+  if (state.tab === 'logs') { await loadAllLogs(); }
   if (state.tab === 'review') { await loadTodosForCurrentPlan(); await computeReviewStats(); await loadPeriodReviewData(); }
   render();
 }
@@ -238,6 +249,7 @@ function render() {
   if (state.tab === 'calendar') page.innerHTML = renderCalendar();
   if (state.tab === 'plans') page.innerHTML = renderPlans();
   if (state.tab === 'todos') page.innerHTML = renderTodos();
+  if (state.tab === 'logs') page.innerHTML = renderLogs();
   if (state.tab === 'review') page.innerHTML = renderReview();
   if (state.tab === 'settings') page.innerHTML = renderSettings();
 
@@ -585,6 +597,68 @@ function renderHistoryFor(planId) {
   </div>`).join('');
   return `<div style="border-left:2px solid var(--pill-bg); padding-left:10px; margin-bottom:12px;">${items}</div>`;
 }
+
+// ---------- 기록 (전체 실행기록 모아보기) ----------
+function renderLogs() {
+  const planOptions = state.plans.map(p => `<option value="${p.id}" ${state.logsPlanFilter === p.id ? 'selected' : ''}>${escapeHtml(p.title)}</option>`).join('');
+
+  let logs = state.allLogs.slice();
+  if (state.logsPlanFilter !== 'all') {
+    logs = logs.filter(l => l.todos && l.todos.plan_id === state.logsPlanFilter);
+  }
+
+  if (!logs.length) {
+    return `
+      <div class="row" style="margin-bottom:14px;">
+        <select onchange="onLogsFilterChange(this.value)">
+          <option value="all" ${state.logsPlanFilter === 'all' ? 'selected' : ''}>전체 계획</option>
+          ${planOptions}
+        </select>
+      </div>
+      <div class="small-muted">아직 완료 기록이 없어요. 할일 탭에서 완료 처리를 하면 여기 쌓여요.</div>`;
+  }
+
+  const groups = {};
+  logs.forEach(l => {
+    const dateKey = toDateStr(new Date(l.ended_at));
+    (groups[dateKey] = groups[dateKey] || []).push(l);
+  });
+  const orderedDates = Object.keys(groups).sort((a, b) => a < b ? 1 : -1);
+
+  const body = orderedDates.map(dateKey => {
+    const items = groups[dateKey].map(l => {
+      const todo = l.todos || {};
+      const plan = todo.plans || {};
+      const c = COLORS[plan.color] || COLORS.mint;
+      const timeStr = new Date(l.ended_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+      return `<div class="row" style="align-items:flex-start; margin-bottom:8px;">
+        <span class="small-muted" style="width:44px; flex-shrink:0;">${timeStr}</span>
+        <div class="grow">
+          <div style="font-size:13px;">${escapeHtml(todo.title || '(지워진 할 일)')}</div>
+          <div class="small-muted">
+            <span style="color:${c.fg};">${escapeHtml(plan.title || '')}</span> · ${l.actual_minutes}분
+            ${l.blocker_reason ? ` · 막힘: ${escapeHtml(l.blocker_reason)}` : ''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    return `<div style="margin-bottom:16px;">
+      <div style="font-size:12px; color:var(--muted); margin-bottom:8px; border-bottom:1px solid var(--pill-bg); padding-bottom:4px;">${dateKey}</div>
+      ${items}
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="row" style="margin-bottom:14px;">
+      <select onchange="onLogsFilterChange(this.value)">
+        <option value="all" ${state.logsPlanFilter === 'all' ? 'selected' : ''}>전체 계획</option>
+        ${planOptions}
+      </select>
+    </div>
+    ${body}`;
+}
+
+function onLogsFilterChange(v) { state.logsPlanFilter = v; render(); }
 
 function renderTodos() {
   const plan = state.plans.find(p => p.id === state.currentPlanId);
