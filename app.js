@@ -27,6 +27,11 @@ let state = {
   showPlanForm: false,
   editingPlanId: null,     // 지금 수정 폼을 펼쳐놓은 계획 id
   showTodoForm: false,
+  reviewPeriodType: 'weekly',   // 'weekly' | 'monthly'
+  reviewPeriodAnchor: new Date(), // 이 날짜가 속한 주/달을 봄
+  periodGroups: [],             // [{plan, items:[todo,...]}]
+  periodReviewId: null,
+  periodReviewNote: '',
 };
 
 function initSupabase() {
@@ -60,6 +65,48 @@ function startOfMonth(d) {
 }
 function daysInMonth(d) {
   return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+}
+
+// ---------- 주간/월간 리뷰 범위 ----------
+function getPeriodRange(type, anchor) {
+  if (type === 'weekly') {
+    const start = startOfWeekMonday(anchor);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return { start, end };
+  }
+  const start = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+  const end = new Date(anchor.getFullYear(), anchor.getMonth(), daysInMonth(anchor));
+  return { start, end };
+}
+
+async function loadPeriodReviewData() {
+  const { start, end } = getPeriodRange(state.reviewPeriodType, state.reviewPeriodAnchor);
+  const startStr = toDateStr(start), endStr = toDateStr(end);
+
+  const { data: todos, error } = await sb.from('todos')
+    .select('*, plans(id,title,color)')
+    .gte('due_date', startStr).lte('due_date', endStr);
+  if (error) { console.error(error); state.periodGroups = []; }
+  else {
+    const byPlan = {};
+    (todos || []).forEach(t => {
+      const pid = t.plan_id;
+      if (!byPlan[pid]) byPlan[pid] = { plan: t.plans, items: [] };
+      byPlan[pid].items.push(t);
+    });
+    state.periodGroups = Object.values(byPlan);
+  }
+
+  const { data: reviewRows } = await sb.from('period_reviews').select('*')
+    .eq('period_type', state.reviewPeriodType).eq('period_start', startStr).eq('period_end', endStr).limit(1);
+  if (reviewRows && reviewRows.length) {
+    state.periodReviewId = reviewRows[0].id;
+    state.periodReviewNote = reviewRows[0].note;
+  } else {
+    state.periodReviewId = null;
+    state.periodReviewNote = '';
+  }
 }
 
 // ---------- 데이터 로드 ----------
@@ -147,7 +194,7 @@ async function refreshAndRender() {
   if (!sb) { render(); return; }
   if (state.tab === 'calendar') await loadAllTodosForMonth();
   if (state.tab === 'todos') { await loadTodosForCurrentPlan(); }
-  if (state.tab === 'review') { await loadTodosForCurrentPlan(); await computeReviewStats(); }
+  if (state.tab === 'review') { await loadTodosForCurrentPlan(); await computeReviewStats(); await loadPeriodReviewData(); }
   render();
 }
 
@@ -670,14 +717,91 @@ async function removeTodo(id) {
 }
 
 // ---------- 돌아보기 ----------
+function renderPeriodReviewSection() {
+  const { start, end } = getPeriodRange(state.reviewPeriodType, state.reviewPeriodAnchor);
+  const label = state.reviewPeriodType === 'weekly'
+    ? `${toDateStr(start)} ~ ${toDateStr(end)}`
+    : `${start.getFullYear()}년 ${start.getMonth() + 1}월`;
+
+  const groups = state.periodGroups.map(g => {
+    const c = COLORS[(g.plan && g.plan.color) || 'mint'];
+    const items = g.items.slice().sort((a, b) => (a.due_date || '').localeCompare(b.due_date || '')).map(t => {
+      const icon = t.status === 'done'
+        ? `<i class="ti ti-check" style="color:${c.fg}"></i>`
+        : `<i class="ti ti-x" style="color:var(--faint)"></i>`;
+      return `<div class="row" style="margin-bottom:4px;">${icon}<span style="font-size:13px; ${t.status === 'done' ? 'text-decoration:line-through;color:var(--faint);' : ''}">${escapeHtml(t.title)}</span>
+        <span class="small-muted" style="margin-left:auto;">${t.due_date || ''}</span></div>`;
+    }).join('');
+    return `<div style="margin-bottom:14px;">
+      <div style="display:inline-block; background:${c.bg}; color:${c.fg}; font-size:11px; padding:3px 10px; border-radius:6px; margin-bottom:8px;">${escapeHtml((g.plan && g.plan.title) || '삭제된 계획')}</div>
+      ${items}
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="row" style="margin-bottom:10px;">
+      <div class="tab ${state.reviewPeriodType === 'weekly' ? 'active' : ''}" style="font-size:12px; padding:6px 14px;" onclick="setReviewPeriodType('weekly')">주간</div>
+      <div class="tab ${state.reviewPeriodType === 'monthly' ? 'active' : ''}" style="font-size:12px; padding:6px 14px;" onclick="setReviewPeriodType('monthly')">월간</div>
+      <span class="grow"></span>
+      <button class="btn btn-ghost" onclick="shiftReviewPeriod(-1)"><i class="ti ti-chevron-left"></i></button>
+      <button class="btn btn-ghost" onclick="shiftReviewPeriod(1)"><i class="ti ti-chevron-right"></i></button>
+    </div>
+    <div style="font-size:14px; margin-bottom:12px;">${label}</div>
+    ${groups || `<div class="small-muted" style="margin-bottom:12px;">이 기간에 마감일이 있는 할 일이 없어요.</div>`}
+    <div class="small-muted" style="margin-bottom:6px;">${state.reviewPeriodType === 'weekly' ? '이번 주' : '이번 달'} 리뷰</div>
+    <textarea id="periodReviewNote" rows="4" style="width:100%; margin-bottom:8px;" placeholder="자유롭게 소감을 적어보세요">${escapeHtml(state.periodReviewNote)}</textarea>
+    <button class="btn btn-dark" onclick="savePeriodReview()">저장</button>
+    <div style="border-top:1px solid var(--pill-bg); margin:20px 0;"></div>
+  `;
+}
+
+function setReviewPeriodType(type) {
+  state.reviewPeriodType = type;
+  refreshReviewPeriod();
+}
+function shiftReviewPeriod(delta) {
+  const d = new Date(state.reviewPeriodAnchor);
+  if (state.reviewPeriodType === 'weekly') d.setDate(d.getDate() + delta * 7);
+  else d.setMonth(d.getMonth() + delta);
+  state.reviewPeriodAnchor = d;
+  refreshReviewPeriod();
+}
+async function refreshReviewPeriod() {
+  await loadPeriodReviewData();
+  render();
+}
+
+async function savePeriodReview() {
+  const note = document.getElementById('periodReviewNote').value.trim();
+  if (!note) { alert('내용을 적어주세요.'); return; }
+  const { start, end } = getPeriodRange(state.reviewPeriodType, state.reviewPeriodAnchor);
+  const payload = {
+    period_type: state.reviewPeriodType,
+    period_start: toDateStr(start),
+    period_end: toDateStr(end),
+    note,
+    updated_at: new Date().toISOString(),
+  };
+  if (state.periodReviewId) {
+    const { error } = await sb.from('period_reviews').update(payload).eq('id', state.periodReviewId);
+    if (error) { alert('저장 실패: ' + error.message); return; }
+  } else {
+    const { data, error } = await sb.from('period_reviews').insert(payload).select().single();
+    if (error) { alert('저장 실패: ' + error.message); return; }
+    state.periodReviewId = data.id;
+  }
+  render();
+}
+
 function renderReview() {
   const plan = state.plans.find(p => p.id === state.currentPlanId);
-  if (!plan) return `<div class="small-muted">계획을 먼저 만들어주세요.</div>`;
+  const periodSection = renderPeriodReviewSection();
+  if (!plan) return periodSection + `<div class="small-muted">계획별 돌아보기를 보려면 계획을 먼저 만들어주세요.</div>`;
   const s = state.reviewStats || { planCount: 0, doneCount: 0, delayedCount: 0, blockedCount: 0, estimatedTotal: 0, actualTotal: 0, diff: 0 };
   const { planCount, doneCount, delayedCount, blockedCount, estimatedTotal, actualTotal, diff } = s;
 
-  return `
-    <div style="font-size:15px; margin-bottom:14px;">이 기간 돌아보기 <span class="small-muted">· ${escapeHtml(plan.title)}</span></div>
+  return periodSection + `
+    <div style="font-size:15px; margin-bottom:14px;">계획별 돌아보기 <span class="small-muted">· ${escapeHtml(plan.title)}</span></div>
     <div class="review-stats">
       <div class="review-stat" style="background:#FAF7F0;" onclick="drillDown('all')"><div class="num">${planCount}</div><div class="lbl small-muted">계획수</div></div>
       <div class="review-stat" style="background:var(--mint-bg);" onclick="drillDown('done')"><div class="num" style="color:var(--mint-fg)">${doneCount}</div><div class="lbl" style="color:var(--mint-fg)">완료</div></div>
