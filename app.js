@@ -468,6 +468,9 @@ function renderPlanCard(plan) {
         <i class="ti ti-chevron-${histOpen ? 'up' : 'down'}"></i> 수정 이력 보기
       </div>
       ${histOpen ? renderHistoryFor(plan.id) : ''}
+      ${plan.cadence !== 'range' ? `<div style="margin-bottom:4px;">
+        <span class="btn btn-ghost" onclick="openAutoFillModal('${plan.id}')" style="font-size:12px;"><i class="ti ti-repeat"></i> ${plan.cadence === 'weekly' ? '이번 주' : '이번 달'} 할 일 자동 채우기</span>
+      </div>` : ''}
       <div style="margin-bottom:4px;">
         <span class="btn btn-ghost" onclick="goToTodosForPlan('${plan.id}')" style="font-size:12px;">이 계획의 할 일 보러가기 →</span>
       </div>
@@ -477,6 +480,91 @@ function renderPlanCard(plan) {
 function goToTodosForPlan(planId) {
   state.currentPlanId = planId;
   switchTab('todos');
+}
+
+// ---------- 반복 할 일 자동 채우기 ----------
+let pdsAutoFillPending = null;
+
+async function openAutoFillModal(planId) {
+  const plan = state.plans.find(p => p.id === planId);
+  if (!plan || plan.cadence === 'range') return;
+
+  const { start, end } = getPeriodRange(plan.cadence, kstNow());
+  const startStr = toDateStr(start), endStr = toDateStr(end);
+
+  const { data, error } = await sb.from('todos').select('id, due_date')
+    .eq('plan_id', planId).gte('due_date', startStr).lte('due_date', endStr);
+  if (error) { pdsAlert('불러오기 실패: ' + error.message); return; }
+
+  const usedDates = new Set((data || []).map(t => t.due_date));
+  const remaining = Math.max(0, (plan.target_count || 0) - usedDates.size);
+  const periodLabel = plan.cadence === 'weekly' ? '이번 주' : '이번 달';
+
+  if (remaining <= 0) {
+    pdsAlert(`${periodLabel}(${startStr}~${endStr})에 이미 목표(${plan.target_count}회)만큼 할 일이 있어요.`);
+    return;
+  }
+
+  pdsAutoFillPending = { planId, start, end, remaining, usedDates };
+
+  document.getElementById('dayModalCard').innerHTML = `
+    <div style="font-size:15px; margin-bottom:10px;">${escapeHtml(plan.title)} 자동 채우기</div>
+    <div class="small-muted" style="margin-bottom:14px;">${periodLabel}(${startStr}~${endStr}) · 목표 ${plan.target_count}회 중 ${usedDates.size}회는 이미 있어요. 남은 날짜에 ${remaining}개를 만들게요.</div>
+    <div class="field-group"><label>할 일 제목</label><input id="af-title" value="${escapeAttr(plan.title)}"></div>
+    <div class="row" style="justify-content:flex-end; margin-top:10px;">
+      <button class="btn btn-ghost" onclick="closeDayModal()">취소</button>
+      <button class="btn btn-dark" onclick="confirmAutoFill()">만들기</button>
+    </div>`;
+  document.getElementById('dayModalOverlay').classList.add('show');
+  document.getElementById('page').classList.add('faded');
+}
+
+async function confirmAutoFill() {
+  if (!pdsAutoFillPending) return;
+  const title = document.getElementById('af-title').value.trim();
+  if (!title) { pdsAlert('제목을 입력하세요.'); return; }
+
+  const { planId, start, end, remaining, usedDates } = pdsAutoFillPending;
+  const plan = state.plans.find(p => p.id === planId);
+
+  // 오늘부터 기간 끝까지, 아직 안 쓴 날짜 후보를 모음
+  const todayStr = toDateStr(kstNow());
+  const rangeStartStr = toDateStr(start) > todayStr ? toDateStr(start) : todayStr;
+  const candidates = [];
+  const cursor = new Date(rangeStartStr + 'T00:00:00');
+  const endDate = new Date(toDateStr(end) + 'T00:00:00');
+  while (cursor <= endDate) {
+    const ds = toDateStr(cursor);
+    if (!usedDates.has(ds)) candidates.push(ds);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  if (!candidates.length) {
+    pdsAlert('할 일을 넣을 수 있는 날짜가 남아있지 않아요. (이미 지난 기간이거나 매일 다른 할 일로 꽉 찼어요)');
+    return;
+  }
+
+  // remaining개를 후보 날짜에서 균등 간격으로 골라냄
+  const n = Math.min(remaining, candidates.length);
+  const picks = [];
+  for (let i = 0; i < n; i++) {
+    picks.push(candidates[Math.floor(i * candidates.length / n)]);
+  }
+
+  const perItemHours = (plan.estimated_hours && plan.target_count) ? Math.round((plan.estimated_hours / plan.target_count) * 100) / 100 : null;
+
+  for (const dateStr of picks) {
+    await sb.from('todos').insert({
+      plan_id: planId, title, due_date: dateStr,
+      priority: plan.priority, tags: [], estimated_hours: perItemHours,
+    });
+  }
+
+  pdsAutoFillPending = null;
+  closeDayModal();
+  state.currentPlanId = planId;
+  await refreshAndRender();
+  pdsAlert(`${n}개의 할 일을 만들었어요.`);
 }
 
 function prioLabel(p) { return p === 'high' ? '높음' : p === 'medium' ? '중간' : '낮음'; }
