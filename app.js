@@ -194,8 +194,6 @@ function render() {
 
 // ---------- 달력 ----------
 function renderCalendar() {
-  if (state.selectedDay) return renderDayView(state.selectedDay);
-
   const cursor = state.monthCursor;
   const year = cursor.getFullYear(), month = cursor.getMonth();
   const first = startOfMonth(cursor);
@@ -275,11 +273,6 @@ function shiftMonth(delta) {
 }
 
 function pickDay(dateStr) {
-  state.selectedDay = dateStr;
-  render();
-}
-
-function renderDayView(dateStr) {
   const items = (state.allTodosForMonth || []).filter(t => t.due_date === dateStr);
   let rows = items.map(t => {
     const c = COLORS[(t.plans && t.plans.color) || 'mint'];
@@ -292,15 +285,29 @@ function renderDayView(dateStr) {
   if (!items.length) rows = `<div class="small-muted">그날 기록이 없습니다.</div>`;
 
   const planId = items.length ? items[0].plan_id : state.currentPlanId;
-  return `<div onclick="backToMonth()" style="cursor:pointer; font-size:12px; color:var(--muted); margin-bottom:10px;">← 달력</div>
+  document.getElementById('dayModalCard').innerHTML = `
+    <div onclick="closeDayModal()" style="cursor:pointer; font-size:12px; color:var(--muted); margin-bottom:10px;">← 닫기</div>
     <div style="font-size:16px; margin-bottom:14px;">${dateStr}</div>
     ${rows}
     <div style="text-align:right; margin-top:16px;">
       <span onclick="goToPlanDetail('${planId || ''}')" style="cursor:pointer; font-size:12px; color:var(--peach-fg);">계획 상세보기 →</span>
     </div>`;
+
+  document.getElementById('dayModalOverlay').classList.add('show');
+  document.getElementById('page').classList.add('faded');
 }
-function backToMonth() { state.selectedDay = null; render(); }
+
+function closeDayModal() {
+  document.getElementById('dayModalOverlay').classList.remove('show');
+  document.getElementById('page').classList.remove('faded');
+}
+
+function closeDayModalIfBackground(evt) {
+  if (evt.target.id === 'dayModalOverlay') closeDayModal();
+}
+
 async function goToPlanDetail(planId) {
+  closeDayModal();
   if (planId) state.currentPlanId = planId;
   await switchTab('records');
 }

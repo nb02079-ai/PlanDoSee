@@ -114,6 +114,21 @@
   .field-group label{display:block; font-size:11px; color:var(--muted); margin-bottom:4px;}
   .field-group input, .field-group select{width:100%;}
   a{color:var(--peach-fg);}
+  .ti{ font-family:"tabler-icons" !important; font-style:normal !important; }
+
+  .page-fade{ transition:opacity .25s ease, filter .25s ease; }
+  .page-fade.faded{ opacity:0.35; filter:blur(1px); pointer-events:none; }
+
+  .day-modal-overlay{
+    position:fixed; inset:0; z-index:500; display:none;
+    align-items:center; justify-content:center; padding:20px;
+    background:rgba(40,34,26,0.35);
+  }
+  .day-modal-overlay.show{ display:flex; }
+  .day-modal-card{
+    background:var(--card); border-radius:16px; padding:20px;
+    max-width:380px; width:100%; box-shadow:0 14px 34px rgba(0,0,0,0.22);
+  }
 
   .cover-overlay{
     position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center;
@@ -194,8 +209,12 @@
       <button class="tab" id="tab-settings" onclick="switchTab('settings')">설정</button>
     </div>
 
-    <div class="page" id="page">불러오는 중...</div>
+    <div class="page page-fade" id="page">불러오는 중...</div>
   </div>
+</div>
+
+<div class="day-modal-overlay" id="dayModalOverlay" onclick="closeDayModalIfBackground(event)">
+  <div class="day-modal-card" id="dayModalCard"></div>
 </div>
 
 <script>
