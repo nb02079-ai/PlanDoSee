@@ -18,14 +18,14 @@ let state = {
   currentPlanId: null,
   todos: [],               // 현재 선택된 계획의 할일
   allTodosForMonth: [],    // 달력용: 전체 계획의 할일(플랜 join)
-  history: [],
-  historyOpen: false,
+  historyOpenPlanId: null, // 지금 이력을 펼쳐놓은 계획 id
+  historyCache: {},        // planId -> plan_history[]
   search: '',
   statusFilter: 'all',
   reviewFilter: null,      // 'all'|'done'|'delayed'|'blocked' — 드릴다운용
   lastReviewId: null,
   showPlanForm: false,
-  editingPlan: false,
+  editingPlanId: null,     // 지금 수정 폼을 펼쳐놓은 계획 id
   showTodoForm: false,
 };
 
@@ -81,13 +81,6 @@ async function loadAllTodosForMonth() {
   const { data, error } = await sb.from('todos').select('*, plans(color,title,cadence,target_count)');
   if (error) { console.error(error); return; }
   state.allTodosForMonth = data || [];
-}
-
-async function loadHistory() {
-  if (!state.currentPlanId) { state.history = []; return; }
-  const { data, error } = await sb.from('plan_history').select('*').eq('plan_id', state.currentPlanId).order('recorded_at', { ascending: false });
-  if (error) { console.error(error); return; }
-  state.history = data || [];
 }
 
 // ---------- CRUD ----------
@@ -153,7 +146,6 @@ async function switchTab(tab) {
 async function refreshAndRender() {
   if (!sb) { render(); return; }
   if (state.tab === 'calendar') await loadAllTodosForMonth();
-  if (state.tab === 'plans') { if (state.historyOpen) await loadHistory(); }
   if (state.tab === 'todos') { await loadTodosForCurrentPlan(); }
   if (state.tab === 'review') { await loadTodosForCurrentPlan(); await computeReviewStats(); }
   render();
@@ -321,61 +313,66 @@ function renderPlanSelector(showCreateBtn) {
 
 // ---------- 계획 ----------
 function renderPlans() {
-  const plan = state.plans.find(p => p.id === state.currentPlanId);
+  let formHtml = '';
+  if (state.showPlanForm) formHtml = renderPlanForm();
 
-  let planFormHtml = '';
-  if (state.showPlanForm) planFormHtml = renderPlanForm();
-
-  if (!plan && !state.showPlanForm) {
-    return `<div class="small-muted" style="margin-bottom:10px;">아직 계획이 없어요. 주간/월간 반복 목표든, 한 번짜리 계획이든 여기서 먼저 만들어주세요.</div>
-      <button class="btn btn-dark" onclick="togglePlanForm(true)"><i class="ti ti-plus"></i> 새 계획 만들기</button>`;
-  }
-
-  let planCardHtml = '';
-  if (plan) {
-    const c = COLORS[plan.color] || COLORS.mint;
-    if (state.editingPlan) {
-      planCardHtml = renderPlanForm(plan);
-    } else {
-      planCardHtml = `
-        <div class="row" style="margin-bottom:10px;">
-          <div class="plan-color-dot" style="background:${c.fg}"></div>
-          <div style="font-size:16px;" class="grow">${escapeHtml(plan.title)}</div>
-          <span class="btn btn-ghost" onclick="toggleEditPlan(true)" style="font-size:11px;"><i class="ti ti-edit"></i></span>
-        </div>
-        <div class="info-card">
-          <div><span class="k">기간</span> &nbsp; ${plan.period_start} – ${plan.period_end || '무기한'}</div>
-          <div><span class="k">우선순위</span> &nbsp; ${prioLabel(plan.priority)}</div>
-          <div><span class="k">성공 기준</span> &nbsp; ${escapeHtml(plan.success_criteria)}</div>
-          <div><span class="k">예상 시간</span> &nbsp; ${plan.estimated_hours}시간</div>
-          <div><span class="k">주기</span> &nbsp; ${plan.cadence === 'range' ? '기간 전체(1회성)' : (plan.cadence === 'weekly' ? '매주' : '매달') + ' ' + plan.target_count + '회'}</div>
-        </div>
-        <div onclick="toggleHistory()" style="font-size:11px; color:var(--muted); cursor:pointer; margin-bottom:8px;">
-          <i class="ti ti-chevron-${state.historyOpen ? 'up' : 'down'}"></i> 수정 이력 보기
-        </div>
-        ${state.historyOpen ? renderHistory() : ''}
-        <div style="margin-top:12px;">
-          <span class="btn btn-ghost" onclick="goToTodosForCurrentPlan()" style="font-size:12px;">이 계획의 할 일 보러가기 →</span>
-        </div>
-      `;
-    }
-  }
+  const cards = state.plans.map(plan => renderPlanCard(plan)).join('');
+  const emptyMsg = (!state.plans.length && !state.showPlanForm)
+    ? `<div class="small-muted" style="margin-top:4px;">아직 계획이 없어요. 주간/월간 반복 목표든, 한 번짜리 계획이든 위 버튼으로 먼저 만들어보세요.</div>`
+    : '';
 
   return `
-    ${renderPlanSelector(true)}
-    ${planFormHtml}
-    ${planCardHtml}
+    <button class="btn btn-dark" style="width:100%; justify-content:center; margin-bottom:16px;" onclick="togglePlanForm(true)">
+      <i class="ti ti-plus"></i> 새 계획 만들기
+    </button>
+    ${formHtml}
+    ${emptyMsg}
+    ${cards}
   `;
 }
 
-function goToTodosForCurrentPlan() { switchTab('todos'); }
+function renderPlanCard(plan) {
+  if (state.editingPlanId === plan.id) {
+    return `<div style="margin-bottom:18px;">${renderPlanForm(plan)}</div>`;
+  }
+  const c = COLORS[plan.color] || COLORS.mint;
+  const histOpen = state.historyOpenPlanId === plan.id;
+
+  return `
+    <div style="border-top:1px solid var(--pill-bg); padding-top:14px; margin-bottom:6px;">
+      <div class="row" style="margin-bottom:10px;">
+        <div class="plan-color-dot" style="background:${c.fg}"></div>
+        <div style="font-size:16px;" class="grow">${escapeHtml(plan.title)}</div>
+        <span class="btn btn-ghost" onclick="toggleEditPlan('${plan.id}')" style="font-size:11px;"><i class="ti ti-edit"></i></span>
+      </div>
+      <div class="info-card">
+        <div><span class="k">기간</span> &nbsp; ${plan.period_start} – ${plan.period_end || '무기한'}</div>
+        <div><span class="k">우선순위</span> &nbsp; ${prioLabel(plan.priority)}</div>
+        <div><span class="k">성공 기준</span> &nbsp; ${escapeHtml(plan.success_criteria)}</div>
+        <div><span class="k">예상 시간</span> &nbsp; ${plan.estimated_hours}시간</div>
+        <div><span class="k">주기</span> &nbsp; ${plan.cadence === 'range' ? '기간 전체(1회성)' : (plan.cadence === 'weekly' ? '매주' : '매달') + ' ' + plan.target_count + '회'}</div>
+      </div>
+      <div onclick="toggleHistory('${plan.id}')" style="font-size:11px; color:var(--muted); cursor:pointer; margin-bottom:8px;">
+        <i class="ti ti-chevron-${histOpen ? 'up' : 'down'}"></i> 수정 이력 보기
+      </div>
+      ${histOpen ? renderHistoryFor(plan.id) : ''}
+      <div style="margin-bottom:4px;">
+        <span class="btn btn-ghost" onclick="goToTodosForPlan('${plan.id}')" style="font-size:12px;">이 계획의 할 일 보러가기 →</span>
+      </div>
+    </div>`;
+}
+
+function goToTodosForPlan(planId) {
+  state.currentPlanId = planId;
+  switchTab('todos');
+}
 
 function prioLabel(p) { return p === 'high' ? '높음' : p === 'medium' ? '중간' : '낮음'; }
 
 function renderPlanForm(existing) {
   const p = existing || {};
   const title = 'planFormFields';
-  return `<div class="info-card" id="${title}">
+  return `<div class="info-card" id="${title}" style="margin-bottom:16px;">
     <div class="field-group"><label>제목</label><input id="pf-title" value="${escapeAttr(p.title || '')}"></div>
     <div class="row">
       <div class="field-group grow"><label>시작일</label><input id="pf-start" type="date" value="${p.period_start || ''}"></div>
@@ -423,8 +420,8 @@ function renderPlanForm(existing) {
 }
 
 function togglePlanForm(v) { state.showPlanForm = v; render(); }
-function cancelPlanForm() { state.showPlanForm = false; state.editingPlan = false; render(); }
-function toggleEditPlan(v) { state.editingPlan = v; render(); }
+function cancelPlanForm() { state.showPlanForm = false; state.editingPlanId = null; render(); }
+function toggleEditPlan(planId) { state.editingPlanId = state.editingPlanId === planId ? null : planId; render(); }
 function pdsToggleIndefinite(checked) {
   const end = document.getElementById('pf-end');
   end.disabled = checked;
@@ -457,27 +454,32 @@ async function submitPlanForm(existingId) {
 
   if (existingId) {
     await updatePlan(existingId, payload);
+    delete state.historyCache[existingId]; // 방금 수정했으니 이력 캐시 무효화
   } else {
     const created = await createPlan(payload);
     if (created) state.currentPlanId = created.id;
   }
   state.showPlanForm = false;
-  state.editingPlan = false;
+  state.editingPlanId = null;
   await loadPlans();
   await refreshAndRender();
 }
 
-function selectPlan(id) { state.currentPlanId = id; state.historyOpen = false; refreshAndRender(); }
+function selectPlan(id) { state.currentPlanId = id; refreshAndRender(); }
 
-async function toggleHistory() {
-  state.historyOpen = !state.historyOpen;
-  if (state.historyOpen) await loadHistory();
+async function toggleHistory(planId) {
+  state.historyOpenPlanId = state.historyOpenPlanId === planId ? null : planId;
+  if (state.historyOpenPlanId && !state.historyCache[planId]) {
+    const { data, error } = await sb.from('plan_history').select('*').eq('plan_id', planId).order('recorded_at', { ascending: false });
+    if (!error) state.historyCache[planId] = data || [];
+  }
   render();
 }
 
-function renderHistory() {
-  if (!state.history.length) return `<div class="small-muted" style="margin-bottom:12px;">아직 수정 이력이 없어요.</div>`;
-  const items = state.history.map(h => `<div class="small-muted" style="margin-bottom:4px;">
+function renderHistoryFor(planId) {
+  const history = state.historyCache[planId] || [];
+  if (!history.length) return `<div class="small-muted" style="margin-bottom:12px;">아직 수정 이력이 없어요.</div>`;
+  const items = history.map(h => `<div class="small-muted" style="margin-bottom:4px;">
     <span style="text-decoration:line-through;">${escapeHtml(h.title)} · ${h.period_start}~${h.period_end || '무기한'} · ${escapeHtml(h.success_criteria)}</span>
     <div>${new Date(h.recorded_at).toLocaleString('ko-KR')} 이전 값</div>
   </div>`).join('');
