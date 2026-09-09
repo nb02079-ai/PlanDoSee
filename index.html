@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>플랜두씨 다이어리</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.46.0/tabler-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
@@ -130,58 +130,31 @@
     max-width:380px; width:100%; box-shadow:0 14px 34px rgba(0,0,0,0.22);
   }
 
-  .cover-overlay{
-    position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center;
-    background:var(--bg); padding:20px; cursor:pointer;
-    transition:opacity .35s ease, transform .35s ease;
+  #appInner{ position:relative; perspective:1800px; }
+  #coverLayer{
+    position:absolute; inset:0; z-index:50; cursor:pointer;
+    border-radius:16px; backface-visibility:hidden; transform-origin:left center;
+    transition:transform .7s cubic-bezier(.4,0,.2,1), box-shadow .7s;
   }
-  .cover-card-wrap{ position:relative; width:100%; max-width:340px; }
-  .cover-card{
-    position:relative; width:100%; min-height:400px;
+  .cover-inner{
+    position:absolute; inset:0; border-radius:16px; overflow:hidden;
     background:linear-gradient(160deg, #2E2B27, #201D1A);
-    border-radius:14px; padding:60px 30px 40px;
-    box-shadow:0 10px 30px rgba(0,0,0,0.25); overflow:hidden;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
   }
   .cover-badge{
-    position:absolute; top:-14px; left:50%; transform:translateX(-50%) rotate(-4deg);
-    background:#EE7B6A; color:#FFFFFF; font-weight:700; font-size:13px;
-    padding:6px 18px; border-radius:999px; box-shadow:0 3px 8px rgba(0,0,0,0.2);
-    z-index:2; white-space:nowrap;
-  }
-  .cover-card-wrap{ position:relative; width:100%; max-width:640px; }
-  .cover-card{
-    position:relative; width:100%; min-height:560px;
-    background:linear-gradient(160deg, #2E2B27, #201D1A);
-    border-radius:18px; padding:70px 34px 44px;
-    box-shadow:0 14px 34px rgba(0,0,0,0.28); overflow:hidden;
-  }
-  .cover-badge{
-    position:absolute; top:-16px; left:50%; transform:translateX(-50%) rotate(-3deg);
+    position:absolute; top:-14px; left:50%; transform:translateX(-50%) rotate(-3deg);
     background:#EE7B6A; color:#FFFFFF; font-weight:700; font-size:14px;
     padding:7px 22px; border-radius:999px; box-shadow:0 3px 8px rgba(0,0,0,0.2);
     z-index:2; white-space:nowrap;
   }
-  .cover-title{ text-align:center; margin-top:90px; font-size:36px; letter-spacing:5px; color:#D9CBA8; text-shadow:0 1px 0 rgba(0,0,0,0.5); }
-  .cover-subtitle{ text-align:center; font-size:11px; letter-spacing:4px; color:#C9BB98; margin-top:10px; text-shadow:0 1px 0 rgba(0,0,0,0.4); }
-  .cover-year{ text-align:center; margin-top:190px; font-size:10px; letter-spacing:2px; color:#9C9184; }
+  .cover-title{ font-size:34px; letter-spacing:5px; color:#D9CBA8; text-shadow:0 1px 0 rgba(0,0,0,0.5); }
+  .cover-subtitle{ font-size:11px; letter-spacing:4px; color:#C9BB98; margin-top:10px; text-shadow:0 1px 0 rgba(0,0,0,0.4); }
+  .cover-year{ font-size:10px; letter-spacing:2px; color:#9C9184; margin-top:40px; }
+  .cover-hint{ font-size:11px; letter-spacing:1px; color:#7A7568; margin-top:8px; }
   .cover-spineshadow{ position:absolute; left:0; top:0; bottom:0; width:16px; background:linear-gradient(90deg, rgba(0,0,0,0.35), transparent); }
-  .cover-hint{ text-align:center; font-size:11px; color:var(--faint); margin-top:10px; }
 </style>
 </head>
 <body>
-<div class="cover-overlay" id="coverOverlay" onclick="openCover()">
-  <div class="cover-card-wrap">
-    <div class="cover-badge">2026</div>
-    <div class="cover-card">
-      <div class="cover-spineshadow"></div>
-      <div class="cover-title">P·D·S</div>
-      <div class="cover-subtitle">PLAN · DO · SEE</div>
-      <div class="cover-year">1 YEAR DIARY</div>
-    </div>
-    <div class="cover-hint">탭하여 열기</div>
-  </div>
-</div>
-
 <div class="shell">
   <div class="spine">
     <span class="ring"></span>
@@ -194,22 +167,35 @@
   <div class="wrap">
     <div class="bookmark"></div>
 
-    <div class="notice">
-      지금은 로그인이 없어 링크를 아는 사람은 누구나 볼 수 있습니다. 남이 봐도 괜찮은 내용만 넣으세요.
-    </div>
+    <div id="appInner">
+      <div class="notice">
+        지금은 로그인이 없어 링크를 아는 사람은 누구나 볼 수 있습니다. 남이 봐도 괜찮은 내용만 넣으세요.
+      </div>
 
-    <div id="setupWarning" class="setup-warning hidden">
-      Supabase 연결이 안 되어 있어요. 이 파일 맨 아래 <code>SUPABASE_URL</code> / <code>SUPABASE_ANON_KEY</code>를 채워 넣어주세요.
-    </div>
+      <div id="setupWarning" class="setup-warning hidden">
+        Supabase 연결이 안 되어 있어요. 이 파일 맨 아래 <code>SUPABASE_URL</code> / <code>SUPABASE_ANON_KEY</code>를 채워 넣어주세요.
+      </div>
 
-    <div class="tabs">
-      <button class="tab" id="tab-calendar" onclick="switchTab('calendar')">달력</button>
-      <button class="tab" id="tab-records" onclick="switchTab('records')">상세기록</button>
-      <button class="tab" id="tab-review" onclick="switchTab('review')">돌아보기</button>
-      <button class="tab" id="tab-settings" onclick="switchTab('settings')">설정</button>
-    </div>
+      <div class="tabs">
+        <button class="tab" id="tab-calendar" onclick="switchTab('calendar')">달력</button>
+        <button class="tab" id="tab-records" onclick="switchTab('records')">상세기록</button>
+        <button class="tab" id="tab-review" onclick="switchTab('review')">돌아보기</button>
+        <button class="tab" id="tab-settings" onclick="switchTab('settings')">설정</button>
+      </div>
 
-    <div class="page page-fade" id="page">불러오는 중...</div>
+      <div class="page page-fade" id="page">불러오는 중...</div>
+
+      <div id="coverLayer" onclick="openCover()">
+        <div class="cover-badge">2026</div>
+        <div class="cover-inner">
+          <div class="cover-spineshadow"></div>
+          <div class="cover-title">P·D·S</div>
+          <div class="cover-subtitle">PLAN · DO · SEE</div>
+          <div class="cover-year">1 YEAR DIARY</div>
+          <div class="cover-hint">탭하여 열기</div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -224,10 +210,13 @@
   // ===============================
 
   function openCover(){
-    const el = document.getElementById('coverOverlay');
-    el.style.opacity = '0';
-    el.style.transform = 'scale(1.03)';
-    setTimeout(() => { el.style.display = 'none'; }, 350);
+    const el = document.getElementById('coverLayer');
+    el.style.boxShadow = '6px 4px 18px rgba(0,0,0,0.25)';
+    el.style.transform = 'rotateY(-170deg)';
+    el.addEventListener('transitionend', function handler(){
+      el.removeEventListener('transitionend', handler);
+      el.style.display = 'none';
+    });
   }
 </script>
 <script src="app.js"></script>
