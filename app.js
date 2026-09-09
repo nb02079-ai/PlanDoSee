@@ -133,24 +133,25 @@ async function loadAllTodosForMonth() {
 // ---------- CRUD ----------
 async function createPlan(payload) {
   const { data, error } = await sb.from('plans').insert(payload).select().single();
-  if (error) { alert('계획 저장 실패: ' + error.message); return null; }
+  if (error) { pdsAlert('계획 저장 실패: ' + error.message); return null; }
   return data;
 }
 async function updatePlan(id, payload) {
   const { error } = await sb.from('plans').update(payload).eq('id', id);
-  if (error) { alert('계획 수정 실패: ' + error.message); }
+  if (error) { pdsAlert('계획 수정 실패: ' + error.message); }
 }
 async function createTodo(payload) {
   const { error } = await sb.from('todos').insert(payload);
-  if (error) alert('할 일 저장 실패: ' + error.message);
+  if (error) pdsAlert('할 일 저장 실패: ' + error.message);
 }
 async function updateTodo(id, payload) {
   const { error } = await sb.from('todos').update(payload).eq('id', id);
-  if (error) alert('할 일 수정 실패: ' + error.message);
+  if (error) { pdsAlert('할 일 수정 실패: ' + error.message); return false; }
+  return true;
 }
 async function deleteTodo(id) {
   const { error } = await sb.from('todos').delete().eq('id', id);
-  if (error) alert('삭제 실패: ' + error.message);
+  if (error) pdsAlert('삭제 실패: ' + error.message);
 }
 
 // 완료 처리: 조건부 UPDATE로 이중 클릭에도 1건만 반영
@@ -164,13 +165,15 @@ async function performComplete(todo, minutes, blocker) {
     .eq('status', 'in_progress')
     .select();
 
-  if (error) { alert('완료 처리 실패: ' + error.message); return; }
+  if (error) { pdsAlert('완료 처리 실패: ' + error.message); return false; }
   if (data && data.length > 0) {
-    await sb.from('execution_logs').insert({
+    const { error: logError } = await sb.from('execution_logs').insert({
       todo_id: todo.id, started_at: startedAt, ended_at: endedAt,
       actual_minutes: minutes, blocker_reason: blocker,
     });
+    if (logError) { pdsAlert('실행 기록 저장 실패: ' + logError.message); return false; }
   }
+  return true;
 }
 async function uncompleteTodo(todo) {
   await updateTodo(todo.id, { status: 'in_progress', completed_at: null });
@@ -178,7 +181,7 @@ async function uncompleteTodo(todo) {
 
 async function createReview(payload) {
   const { data, error } = await sb.from('reviews').insert(payload).select().single();
-  if (error) { alert('돌아보기 저장 실패: ' + error.message); return null; }
+  if (error) { pdsAlert('돌아보기 저장 실패: ' + error.message); return null; }
   return data;
 }
 
@@ -363,6 +366,36 @@ function closeDayModalIfBackground(evt) {
   if (evt.target.id === 'dayModalOverlay') closeDayModal();
 }
 
+// ---------- 범용 팝업 (브라우저 alert/confirm 대체) ----------
+function pdsAlert(message) {
+  document.getElementById('dayModalCard').innerHTML = `
+    <div style="font-size:13px; margin-bottom:18px; white-space:pre-wrap;">${escapeHtml(message)}</div>
+    <div class="row" style="justify-content:flex-end;">
+      <button class="btn btn-dark" onclick="closeDayModal()">확인</button>
+    </div>`;
+  document.getElementById('dayModalOverlay').classList.add('show');
+  document.getElementById('page').classList.add('faded');
+}
+
+let pdsConfirmCallback = null;
+function pdsConfirm(message, onYes) {
+  pdsConfirmCallback = onYes;
+  document.getElementById('dayModalCard').innerHTML = `
+    <div style="font-size:13px; margin-bottom:18px; white-space:pre-wrap;">${escapeHtml(message)}</div>
+    <div class="row" style="justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeDayModal()">취소</button>
+      <button class="btn btn-dark" onclick="pdsConfirmYes()">확인</button>
+    </div>`;
+  document.getElementById('dayModalOverlay').classList.add('show');
+  document.getElementById('page').classList.add('faded');
+}
+function pdsConfirmYes() {
+  const cb = pdsConfirmCallback;
+  pdsConfirmCallback = null;
+  closeDayModal();
+  if (cb) cb();
+}
+
 async function goToPlanDetail(planId) {
   closeDayModal();
   if (planId) state.currentPlanId = planId;
@@ -509,7 +542,7 @@ async function submitPlanForm(existingId) {
     color: document.getElementById('pf-color').value,
   };
   if (!payload.title || !payload.period_start || (!indefinite && !payload.period_end)) {
-    alert('제목/시작일은 필수이고, 무기한이 아니면 종료일도 입력해야 해요.');
+    pdsAlert('제목/시작일은 필수이고, 무기한이 아니면 종료일도 입력해야 해요.');
     return;
   }
   if (payload.cadence === 'range') payload.target_count = null;
@@ -593,7 +626,7 @@ function renderTodos() {
         <div style="font-size:13px; ${t.status === 'done' ? 'text-decoration:line-through;color:var(--faint);' : ''}">${escapeHtml(t.title)}</div>
         <div class="small-muted">${t.due_date || '마감 없음'} · ${prioLabel(t.priority)} ${(t.tags || []).map(tag => `· ${escapeHtml(tag)}`).join(' ')}</div>
       </div>
-      <i class="ti ti-edit" style="cursor:pointer;" onclick="editTodoPrompt('${t.id}')"></i>
+      <i class="ti ti-edit" style="cursor:pointer;" onclick="openEditTodoModal('${t.id}')"></i>
       <i class="ti ti-trash" style="cursor:pointer;" onclick="removeTodo('${t.id}')"></i>
     </div>
   `).join('');
@@ -648,7 +681,7 @@ function renderTodoForm() {
 
 async function submitTodoForm() {
   const title = document.getElementById('tf-title').value.trim();
-  if (!title) { alert('제목을 입력하세요.'); return; }
+  if (!title) { pdsAlert('제목을 입력하세요.'); return; }
   const selectedPlanId = document.getElementById('tf-plan').value;
   const payload = {
     plan_id: selectedPlanId,
@@ -696,24 +729,61 @@ async function confirmCompleteModal(todoId) {
   if (!t) return;
   const minutes = Number(document.getElementById('cm-minutes').value) || 0;
   const blocker = document.getElementById('cm-blocker').value.trim() || null;
-  await performComplete(t, minutes, blocker);
+  const ok = await performComplete(t, minutes, blocker);
+  if (!ok) return; // 실패 시 에러 팝업이 그대로 떠 있게 둠
   closeDayModal();
   await refreshAndRender();
 }
 
-async function editTodoPrompt(id) {
+function openEditTodoModal(id) {
   const t = state.todos.find(x => x.id === id);
   if (!t) return;
-  const title = prompt('할 일 제목 수정', t.title);
-  if (title === null) return;
-  await updateTodo(id, { title });
+  document.getElementById('dayModalCard').innerHTML = `
+    <div style="font-size:15px; margin-bottom:14px;">할 일 수정</div>
+    <div class="field-group"><label>제목</label><input id="et-title" value="${escapeAttr(t.title)}"></div>
+    <div class="row">
+      <div class="field-group grow"><label>마감일</label><input id="et-due" type="date" value="${t.due_date || ''}"></div>
+      <div class="field-group grow"><label>우선순위</label>
+        <select id="et-priority">
+          <option value="high" ${t.priority === 'high' ? 'selected' : ''}>높음</option>
+          <option value="medium" ${t.priority === 'medium' ? 'selected' : ''}>중간</option>
+          <option value="low" ${t.priority === 'low' ? 'selected' : ''}>낮음</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field-group grow"><label>태그(쉼표로 구분)</label><input id="et-tags" value="${escapeAttr((t.tags || []).join(', '))}"></div>
+      <div class="field-group grow"><label>예상 시간(시간)</label><input id="et-hours" type="number" step="0.25" value="${t.estimated_hours || ''}"></div>
+    </div>
+    <div class="row" style="justify-content:flex-end; margin-top:10px;">
+      <button class="btn btn-ghost" onclick="closeDayModal()">취소</button>
+      <button class="btn btn-dark" onclick="confirmEditTodo('${id}')">저장</button>
+    </div>`;
+  document.getElementById('dayModalOverlay').classList.add('show');
+  document.getElementById('page').classList.add('faded');
+}
+
+async function confirmEditTodo(id) {
+  const title = document.getElementById('et-title').value.trim();
+  if (!title) { pdsAlert('제목을 입력하세요.'); return; }
+  const payload = {
+    title,
+    due_date: document.getElementById('et-due').value || null,
+    priority: document.getElementById('et-priority').value,
+    tags: document.getElementById('et-tags').value.split(',').map(s => s.trim()).filter(Boolean),
+    estimated_hours: Number(document.getElementById('et-hours').value) || null,
+  };
+  const ok = await updateTodo(id, payload);
+  if (!ok) return; // 실패 시 에러 팝업이 그대로 떠 있게 둠
+  closeDayModal();
   await refreshAndRender();
 }
 
-async function removeTodo(id) {
-  if (!confirm('이 할 일을 지울까요?')) return;
-  await deleteTodo(id);
-  await refreshAndRender();
+function removeTodo(id) {
+  pdsConfirm('이 할 일을 지울까요?', async () => {
+    await deleteTodo(id);
+    await refreshAndRender();
+  });
 }
 
 // ---------- 돌아보기 ----------
@@ -773,7 +843,7 @@ async function refreshReviewPeriod() {
 
 async function savePeriodReview() {
   const note = document.getElementById('periodReviewNote').value.trim();
-  if (!note) { alert('내용을 적어주세요.'); return; }
+  if (!note) { pdsAlert('내용을 적어주세요.'); return; }
   const { start, end } = getPeriodRange(state.reviewPeriodType, state.reviewPeriodAnchor);
   const payload = {
     period_type: state.reviewPeriodType,
@@ -784,10 +854,10 @@ async function savePeriodReview() {
   };
   if (state.periodReviewId) {
     const { error } = await sb.from('period_reviews').update(payload).eq('id', state.periodReviewId);
-    if (error) { alert('저장 실패: ' + error.message); return; }
+    if (error) { pdsAlert('저장 실패: ' + error.message); return; }
   } else {
     const { data, error } = await sb.from('period_reviews').insert(payload).select().single();
-    if (error) { alert('저장 실패: ' + error.message); return; }
+    if (error) { pdsAlert('저장 실패: ' + error.message); return; }
     state.periodReviewId = data.id;
   }
   render();
@@ -796,12 +866,15 @@ async function savePeriodReview() {
 function renderReview() {
   const plan = state.plans.find(p => p.id === state.currentPlanId);
   const periodSection = renderPeriodReviewSection();
-  if (!plan) return periodSection + `<div class="small-muted">계획별 돌아보기를 보려면 계획을 먼저 만들어주세요.</div>`;
+  const planPickerHtml = state.plans.length ? renderPlanSelector(false) : '';
+
+  if (!plan) return periodSection + planPickerHtml + `<div class="small-muted">계획별 돌아보기를 보려면 계획을 먼저 만들어주세요.</div>`;
   const s = state.reviewStats || { planCount: 0, doneCount: 0, delayedCount: 0, blockedCount: 0, estimatedTotal: 0, actualTotal: 0, diff: 0 };
   const { planCount, doneCount, delayedCount, blockedCount, estimatedTotal, actualTotal, diff } = s;
 
   return periodSection + `
-    <div style="font-size:15px; margin-bottom:14px;">계획별 돌아보기 <span class="small-muted">· ${escapeHtml(plan.title)}</span></div>
+    <div style="font-size:15px; margin-bottom:10px;">계획별 돌아보기</div>
+    ${planPickerHtml}
     <div class="review-stats">
       <div class="review-stat" style="background:#FAF7F0;" onclick="drillDown('all')"><div class="num">${planCount}</div><div class="lbl small-muted">계획수</div></div>
       <div class="review-stat" style="background:var(--mint-bg);" onclick="drillDown('done')"><div class="num" style="color:var(--mint-fg)">${doneCount}</div><div class="lbl" style="color:var(--mint-fg)">완료</div></div>
@@ -822,7 +895,7 @@ async function drillDown(kind) {
 
 async function submitReview() {
   const note = document.getElementById('reviewNote').value.trim();
-  if (!note) { alert('고칠 점을 한 줄 적어주세요.'); return; }
+  if (!note) { pdsAlert('고칠 점을 한 줄 적어주세요.'); return; }
   const plan = state.plans.find(p => p.id === state.currentPlanId);
   const created = await createReview({
     plan_id: plan.id, period_start: plan.period_start, period_end: plan.period_end, improvement_note: note,
@@ -830,7 +903,7 @@ async function submitReview() {
   if (created) {
     state.lastReviewId = created.id;
     state.showPlanForm = true;
-    alert('고칠 점을 저장했어요. 이어서 다음 계획을 만들어보세요 — 계획 탭에 새 계획 입력창을 열어둘게요.');
+    pdsAlert('고칠 점을 저장했어요. 이어서 다음 계획을 만들어보세요 — 계획 탭에 새 계획 입력창을 열어둘게요.');
     await switchTab('plans');
   }
 }
@@ -845,7 +918,7 @@ function renderSettings() {
 }
 
 async function exportAllData() {
-  if (!sb) { alert('Supabase 설정이 필요해요.'); return; }
+  if (!sb) { pdsAlert('Supabase 설정이 필요해요.'); return; }
   const [plans, planHistory, todos, logs, reviews] = await Promise.all([
     sb.from('plans').select('*'),
     sb.from('plan_history').select('*'),
