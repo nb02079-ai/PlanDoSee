@@ -114,9 +114,44 @@
   .field-group label{display:block; font-size:11px; color:var(--muted); margin-bottom:4px;}
   .field-group input, .field-group select{width:100%;}
   a{color:var(--peach-fg);}
+
+  .cover-overlay{
+    position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center;
+    background:var(--bg); padding:20px; cursor:pointer;
+    transition:opacity .35s ease, transform .35s ease;
+  }
+  .cover-card{
+    position:relative; width:100%; max-width:340px; min-height:400px;
+    background:linear-gradient(160deg, #2E2B27, #201D1A);
+    border-radius:14px; padding:60px 30px 40px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.25); overflow:hidden;
+  }
+  .cover-badge{
+    position:absolute; top:-14px; left:50%; transform:translateX(-50%) rotate(-4deg);
+    background:#EE7B6A; color:#FFFFFF; font-weight:700; font-size:13px;
+    padding:6px 18px; border-radius:999px 999px 999px 0; box-shadow:0 3px 8px rgba(0,0,0,0.2);
+  }
+  .cover-title{ text-align:center; margin-top:70px; font-size:30px; letter-spacing:4px; color:#D9CBA8; text-shadow:0 1px 0 rgba(0,0,0,0.5); }
+  .cover-subtitle{ text-align:center; font-size:10px; letter-spacing:3px; color:#C9BB98; margin-top:8px; text-shadow:0 1px 0 rgba(0,0,0,0.4); }
+  .cover-year{ text-align:center; margin-top:150px; font-size:9px; letter-spacing:2px; color:#9C9184; }
+  .cover-spineshadow{ position:absolute; left:0; top:0; bottom:0; width:14px; background:linear-gradient(90deg, rgba(0,0,0,0.35), transparent); }
+  .cover-hint{ text-align:center; font-size:11px; color:var(--faint); margin-top:10px; }
 </style>
 </head>
 <body>
+<div class="cover-overlay" id="coverOverlay" onclick="openCover()">
+  <div>
+    <div class="cover-card">
+      <div class="cover-spineshadow"></div>
+      <div class="cover-badge">2026</div>
+      <div class="cover-title">P·D·S</div>
+      <div class="cover-subtitle">PLAN · DO · SEE</div>
+      <div class="cover-year">1 YEAR DIARY</div>
+    </div>
+    <div class="cover-hint">탭하여 열기</div>
+  </div>
+</div>
+
 <div class="shell">
   <div class="spine">
     <span class="ring"></span>
@@ -149,10 +184,17 @@
 </div>
 
 <script>
-  // ==== 여기에 본인 Supabase 프로젝트 정보를 채워 넣으세요 ====
-  const SUPABASE_URL = "https://YOUR_PROJECT.supabase.co";
-  const SUPABASE_ANON_KEY = "YOUR_ANON_KEY";
-  // =========================================================
+  // ==== Supabase 프로젝트 정보 ====
+  const SUPABASE_URL = "https://hskdfyicbmsgwentwnop.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_szvYK65O-J59c-IKit03sg_JZyXIbe3";
+  // ===============================
+
+  function openCover(){
+    const el = document.getElementById('coverOverlay');
+    el.style.opacity = '0';
+    el.style.transform = 'scale(1.03)';
+    setTimeout(() => { el.style.display = 'none'; }, 350);
+  }
 </script>
 <script src="app.js"></script>
 </body>
