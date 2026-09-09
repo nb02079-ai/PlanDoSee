@@ -175,11 +175,31 @@ async function computeReviewStats() {
 
 function render() {
   const page = document.getElementById('page');
+
+  // 재렌더링으로 입력 중이던 칸의 포커스가 날아가지 않도록 저장
+  const active = document.activeElement;
+  let restoreId = null, restoreStart = null, restoreEnd = null;
+  if (active && page.contains(active) && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+    restoreId = active.id;
+    restoreStart = active.selectionStart;
+    restoreEnd = active.selectionEnd;
+  }
+
   if (state.tab === 'calendar') page.innerHTML = renderCalendar();
   if (state.tab === 'plans') page.innerHTML = renderPlans();
   if (state.tab === 'todos') page.innerHTML = renderTodos();
   if (state.tab === 'review') page.innerHTML = renderReview();
   if (state.tab === 'settings') page.innerHTML = renderSettings();
+
+  if (restoreId) {
+    const el = document.getElementById(restoreId);
+    if (el) {
+      el.focus();
+      if (typeof restoreStart === 'number' && el.setSelectionRange) {
+        try { el.setSelectionRange(restoreStart, restoreEnd); } catch (e) { /* 숫자/날짜 입력 등은 무시 */ }
+      }
+    }
+  }
 }
 
 // ---------- 달력 ----------
