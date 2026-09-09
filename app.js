@@ -551,7 +551,7 @@ async function confirmAutoFill() {
     picks.push(candidates[Math.floor(i * candidates.length / n)]);
   }
 
-  const perItemHours = (plan.estimated_hours && plan.target_count) ? Math.round((plan.estimated_hours / plan.target_count) * 100) / 100 : null;
+  const perItemHours = plan.estimated_hours || null;
 
   for (const dateStr of picks) {
     await sb.from('todos').insert({
@@ -686,6 +686,58 @@ function renderHistoryFor(planId) {
   return `<div style="border-left:2px solid var(--pill-bg); padding-left:10px; margin-bottom:12px;">${items}</div>`;
 }
 
+// ---------- 완료 스트릭 / 히트맵 ----------
+function computeStreakAndCounts(logs) {
+  const countMap = {};
+  logs.forEach(l => {
+    const d = toDateStr(new Date(l.ended_at));
+    countMap[d] = (countMap[d] || 0) + 1;
+  });
+  let streak = 0;
+  const cursor = kstNow();
+  while (countMap[toDateStr(cursor)]) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return { countMap, streak };
+}
+
+function renderHeatmapGrid(countMap) {
+  const weeks = 12;
+  const today = kstNow();
+  const todayMonday = startOfWeekMonday(today);
+  const startMonday = new Date(todayMonday);
+  startMonday.setDate(startMonday.getDate() - (weeks - 1) * 7);
+
+  let cells = '';
+  for (let w = 0; w < weeks; w++) {
+    for (let d = 0; d < 7; d++) {
+      const day = new Date(startMonday);
+      day.setDate(startMonday.getDate() + w * 7 + d);
+      const ds = toDateStr(day);
+      const count = countMap[ds] || 0;
+      const isFuture = day > today;
+      let bg = 'var(--pill-bg)';
+      if (!isFuture) {
+        if (count >= 3) bg = 'var(--mint-fg)';
+        else if (count === 2) bg = '#8FC79E';
+        else if (count === 1) bg = 'var(--mint-bg)';
+      }
+      cells += `<div title="${ds} · ${count}건" style="width:12px; height:12px; border-radius:2px; background:${bg};"></div>`;
+    }
+  }
+  return `<div style="display:grid; grid-auto-flow:column; grid-template-rows:repeat(7,12px); gap:3px;">${cells}</div>`;
+}
+
+function renderStreakPanel(logs) {
+  const { countMap, streak } = computeStreakAndCounts(logs);
+  return `<div class="info-card" style="margin-bottom:14px;">
+    <div style="font-size:20px; margin-bottom:10px;">${streak}<span style="font-size:12px; color:var(--muted);"> 일 연속 완료</span></div>
+    ${renderHeatmapGrid(countMap)}
+    <div class="small-muted" style="margin-top:8px;">최근 12주</div>
+  </div>`;
+}
+
 // ---------- 기록 (전체 실행기록 모아보기) ----------
 function renderLogs() {
   const planOptions = state.plans.map(p => `<option value="${p.id}" ${state.logsPlanFilter === p.id ? 'selected' : ''}>${escapeHtml(p.title)}</option>`).join('');
@@ -695,15 +747,18 @@ function renderLogs() {
     logs = logs.filter(l => l.todos && l.todos.plan_id === state.logsPlanFilter);
   }
 
+  const filterHtml = `
+    <div class="row" style="margin-bottom:14px;">
+      <select onchange="onLogsFilterChange(this.value)">
+        <option value="all" ${state.logsPlanFilter === 'all' ? 'selected' : ''}>전체 계획</option>
+        ${planOptions}
+      </select>
+    </div>`;
+
+  const streakHtml = renderStreakPanel(logs);
+
   if (!logs.length) {
-    return `
-      <div class="row" style="margin-bottom:14px;">
-        <select onchange="onLogsFilterChange(this.value)">
-          <option value="all" ${state.logsPlanFilter === 'all' ? 'selected' : ''}>전체 계획</option>
-          ${planOptions}
-        </select>
-      </div>
-      <div class="small-muted">아직 완료 기록이 없어요. 할일 탭에서 완료 처리를 하면 여기 쌓여요.</div>`;
+    return filterHtml + streakHtml + `<div class="small-muted">아직 완료 기록이 없어요. 할일 탭에서 완료 처리를 하면 여기 쌓여요.</div>`;
   }
 
   const groups = {};
@@ -719,12 +774,13 @@ function renderLogs() {
       const plan = todo.plans || {};
       const c = COLORS[plan.color] || COLORS.mint;
       const timeStr = new Date(l.ended_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+      const hoursStr = (l.actual_minutes / 60).toFixed(1).replace(/\.0$/, '');
       return `<div class="row" style="align-items:flex-start; margin-bottom:8px;">
         <span class="small-muted" style="width:44px; flex-shrink:0;">${timeStr}</span>
         <div class="grow">
           <div style="font-size:13px;">${escapeHtml(todo.title || '(지워진 할 일)')}</div>
           <div class="small-muted">
-            <span style="color:${c.fg};">${escapeHtml(plan.title || '')}</span> · ${l.actual_minutes}분
+            <span style="color:${c.fg};">${escapeHtml(plan.title || '')}</span> · ${hoursStr}시간
             ${l.blocker_reason ? ` · 막힘: ${escapeHtml(l.blocker_reason)}` : ''}
           </div>
         </div>
@@ -736,14 +792,7 @@ function renderLogs() {
     </div>`;
   }).join('');
 
-  return `
-    <div class="row" style="margin-bottom:14px;">
-      <select onchange="onLogsFilterChange(this.value)">
-        <option value="all" ${state.logsPlanFilter === 'all' ? 'selected' : ''}>전체 계획</option>
-        ${planOptions}
-      </select>
-    </div>
-    ${body}`;
+  return filterHtml + streakHtml + body;
 }
 
 function onLogsFilterChange(v) { state.logsPlanFilter = v; render(); }
