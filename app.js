@@ -114,11 +114,7 @@ async function deleteTodo(id) {
 }
 
 // 완료 처리: 조건부 UPDATE로 이중 클릭에도 1건만 반영
-async function completeTodo(todo) {
-  const minutesStr = prompt('실제로 걸린 시간(분)을 입력하세요', String(todo.estimated_hours ? Math.round(todo.estimated_hours * 60) : 30));
-  if (minutesStr === null) return;
-  const minutes = Number(minutesStr) || 0;
-  const blocker = prompt('막힌 점이 있었다면 적어주세요 (없으면 비워두기)', '') || null;
+async function performComplete(todo, minutes, blocker) {
   const endedAt = new Date().toISOString();
   const startedAt = new Date(Date.now() - minutes * 60000).toISOString();
 
@@ -602,8 +598,37 @@ async function submitTodoForm() {
 async function toggleComplete(id) {
   const t = state.todos.find(x => x.id === id);
   if (!t) return;
-  if (t.status === 'done') await uncompleteTodo(t);
-  else await completeTodo(t);
+  if (t.status === 'done') {
+    await uncompleteTodo(t);
+    await refreshAndRender();
+    return;
+  }
+  openCompleteModal(id);
+}
+
+function openCompleteModal(todoId) {
+  const t = state.todos.find(x => x.id === todoId);
+  if (!t) return;
+  const defaultMinutes = t.estimated_hours ? Math.round(t.estimated_hours * 60) : 30;
+  document.getElementById('dayModalCard').innerHTML = `
+    <div style="font-size:15px; margin-bottom:14px;">${escapeHtml(t.title)} 완료</div>
+    <div class="field-group"><label>실제로 걸린 시간(분)</label><input id="cm-minutes" type="number" value="${defaultMinutes}"></div>
+    <div class="field-group"><label>막힌 점이 있었다면 (선택)</label><textarea id="cm-blocker" rows="3" placeholder="없으면 비워두세요"></textarea></div>
+    <div class="row" style="margin-top:10px; justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeDayModal()">취소</button>
+      <button class="btn btn-dark" onclick="confirmCompleteModal('${todoId}')">완료로 표시</button>
+    </div>`;
+  document.getElementById('dayModalOverlay').classList.add('show');
+  document.getElementById('page').classList.add('faded');
+}
+
+async function confirmCompleteModal(todoId) {
+  const t = state.todos.find(x => x.id === todoId);
+  if (!t) return;
+  const minutes = Number(document.getElementById('cm-minutes').value) || 0;
+  const blocker = document.getElementById('cm-blocker').value.trim() || null;
+  await performComplete(t, minutes, blocker);
+  closeDayModal();
   await refreshAndRender();
 }
 
