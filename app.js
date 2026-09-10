@@ -34,6 +34,7 @@ let state = {
   periodReviewNote: '',
   allLogs: [],           // 기록 탭: 전체 실행기록(할일/계획 join)
   logsPlanFilter: 'all', // 기록 탭 필터
+  showEndedPlans: false, // 계획 탭: 지난 계획 펼침 여부
 };
 
 function initSupabase() {
@@ -148,11 +149,18 @@ async function createPlan(payload) {
 }
 async function updatePlan(id, payload) {
   const { error } = await sb.from('plans').update(payload).eq('id', id);
-  if (error) { pdsAlert('계획 수정 실패: ' + error.message); }
+  if (error) { pdsAlert('계획 수정 실패: ' + error.message); return false; }
+  return true;
+}
+async function deletePlan(id) {
+  const { error } = await sb.from('plans').delete().eq('id', id);
+  if (error) { pdsAlert('계획 삭제 실패: ' + error.message); return false; }
+  return true;
 }
 async function createTodo(payload) {
   const { error } = await sb.from('todos').insert(payload);
-  if (error) pdsAlert('할 일 저장 실패: ' + error.message);
+  if (error) { pdsAlert('할 일 저장 실패: ' + error.message); return false; }
+  return true;
 }
 async function updateTodo(id, payload) {
   const { error } = await sb.from('todos').update(payload).eq('id', id);
@@ -282,6 +290,27 @@ function renderCalendar() {
     (byDay[key] = byDay[key] || []).push(t);
   });
 
+  const todayItems = (state.allTodosForMonth || []).filter(t => t.due_date === todayStr)
+    .sort((a, b) => prioRank(a.priority) - prioRank(b.priority));
+  let todayHtml = '';
+  if (todayItems.length) {
+    const rows = todayItems.map(t => {
+      const c = COLORS[(t.plans && t.plans.color) || 'mint'];
+      const icon = t.status === 'done'
+        ? `<i class="ti ti-check" style="color:${c.fg};"></i>`
+        : `<i class="ti ti-x" style="color:var(--faint);"></i>`;
+      return `<div class="row" style="margin-bottom:4px;">${icon}<span style="font-size:13px; ${t.status === 'done' ? 'text-decoration:line-through;color:var(--faint);' : ''}">${escapeHtml(t.title)}</span>
+        <span class="small-muted" style="margin-left:auto;">${escapeHtml((t.plans && t.plans.title) || '')}</span></div>`;
+    }).join('');
+    todayHtml = `<div class="info-card" style="margin-bottom:14px;">
+      <div class="row" style="margin-bottom:8px;">
+        <div style="font-size:13px;" class="grow">오늘 할 일</div>
+        <span class="small-muted" style="cursor:pointer;" onclick="pickDay('${todayStr}')">자세히 →</span>
+      </div>
+      ${rows}
+    </div>`;
+  }
+
   let goalsHtml = '';
   const cadencePlans = state.plans.filter(p => p.cadence !== 'range' && p.target_count);
   if (cadencePlans.length) {
@@ -327,7 +356,7 @@ function renderCalendar() {
   grid += `</div>`;
 
   const monthLabel = `${year}년 ${month + 1}월`;
-  return `<div class="row" style="justify-content:space-between; margin-bottom:10px;">
+  return `${todayHtml}<div class="row" style="justify-content:space-between; margin-bottom:10px;">
       <button class="btn btn-ghost" onclick="shiftMonth(-1)"><i class="ti ti-chevron-left"></i></button>
       <div style="font-size:14px;">${monthLabel}</div>
       <button class="btn btn-ghost" onclick="shiftMonth(1)"><i class="ti ti-chevron-right"></i></button>
@@ -428,10 +457,27 @@ function renderPlans() {
   let formHtml = '';
   if (state.showPlanForm) formHtml = renderPlanForm();
 
-  const cards = state.plans.map(plan => renderPlanCard(plan)).join('');
+  const todayStr = toDateStr(kstNow());
+  const activePlans = state.plans.filter(p => !p.period_end || p.period_end >= todayStr);
+  const endedPlans = state.plans.filter(p => p.period_end && p.period_end < todayStr);
+
+  const activeCards = activePlans.map(plan => renderPlanCard(plan)).join('');
   const emptyMsg = (!state.plans.length && !state.showPlanForm)
     ? `<div class="small-muted" style="margin-top:4px;">아직 계획이 없어요. 주간/월간 반복 목표든, 한 번짜리 계획이든 위 버튼으로 먼저 만들어보세요.</div>`
     : '';
+  const noActiveMsg = (state.plans.length && !activePlans.length && !state.showPlanForm)
+    ? `<div class="small-muted" style="margin-top:4px;">진행 중인 계획이 없어요. 아래 "지난 계획"을 확인해보세요.</div>`
+    : '';
+
+  let endedHtml = '';
+  if (endedPlans.length) {
+    endedHtml = `<div onclick="toggleEndedPlans()" style="font-size:12px; color:var(--muted); cursor:pointer; margin:10px 0; border-top:1px solid var(--pill-bg); padding-top:14px;">
+      <i class="ti ti-chevron-${state.showEndedPlans ? 'up' : 'down'}"></i> 지난 계획 보기 (${endedPlans.length}개)
+    </div>`;
+    if (state.showEndedPlans) {
+      endedHtml += endedPlans.map(plan => renderPlanCard(plan)).join('');
+    }
+  }
 
   return `
     <button class="btn btn-dark" style="width:100%; justify-content:center; margin-bottom:16px;" onclick="togglePlanForm(true)">
@@ -439,9 +485,13 @@ function renderPlans() {
     </button>
     ${formHtml}
     ${emptyMsg}
-    ${cards}
+    ${noActiveMsg}
+    ${activeCards}
+    ${endedHtml}
   `;
 }
+
+function toggleEndedPlans() { state.showEndedPlans = !state.showEndedPlans; render(); }
 
 function renderPlanCard(plan) {
   if (state.editingPlanId === plan.id) {
@@ -456,6 +506,7 @@ function renderPlanCard(plan) {
         <div class="plan-color-dot" style="background:${c.fg}"></div>
         <div style="font-size:16px;" class="grow">${escapeHtml(plan.title)}</div>
         <span class="btn btn-ghost" onclick="toggleEditPlan('${plan.id}')" style="font-size:11px;"><i class="ti ti-edit"></i></span>
+        <span class="btn btn-ghost" onclick="confirmDeletePlan('${plan.id}')" style="font-size:11px;"><i class="ti ti-trash"></i></span>
       </div>
       <div class="info-card">
         <div><span class="k">기간</span> &nbsp; ${plan.period_start} – ${plan.period_end || '무기한'}</div>
@@ -480,6 +531,18 @@ function renderPlanCard(plan) {
 function goToTodosForPlan(planId) {
   state.currentPlanId = planId;
   switchTab('todos');
+}
+
+function confirmDeletePlan(planId) {
+  const plan = state.plans.find(p => p.id === planId);
+  if (!plan) return;
+  pdsConfirm(`"${plan.title}" 계획을 지울까요?\n딸린 할 일과 실행 기록도 함께 지워지고, 되돌릴 수 없어요.`, async () => {
+    const ok = await deletePlan(planId);
+    if (!ok) return;
+    if (state.currentPlanId === planId) state.currentPlanId = null;
+    await loadPlans();
+    await refreshAndRender();
+  });
 }
 
 // ---------- 반복 할 일 자동 채우기 ----------
@@ -613,7 +676,7 @@ function renderPlanForm(existing) {
       </select>
     </div>
     <div class="row">
-      <button class="btn btn-dark" onclick="submitPlanForm('${existing ? existing.id : ''}')">저장</button>
+      <button class="btn btn-dark" onclick="submitPlanForm('${existing ? existing.id : ''}', this)">저장</button>
       <button class="btn btn-ghost" onclick="cancelPlanForm()">취소</button>
     </div>
   </div>`;
@@ -628,7 +691,8 @@ function pdsToggleIndefinite(checked) {
   if (checked) end.value = '';
 }
 
-async function submitPlanForm(existingId) {
+async function submitPlanForm(existingId, btn) {
+  if (btn) { if (btn.disabled) return; btn.disabled = true; }
   const indefinite = document.getElementById('pf-indefinite').checked;
   const payload = {
     title: document.getElementById('pf-title').value.trim(),
@@ -643,6 +707,7 @@ async function submitPlanForm(existingId) {
   };
   if (!payload.title || !payload.period_start || (!indefinite && !payload.period_end)) {
     pdsAlert('제목/시작일은 필수이고, 무기한이 아니면 종료일도 입력해야 해요.');
+    if (btn) btn.disabled = false;
     return;
   }
   if (payload.cadence === 'range') payload.target_count = null;
@@ -653,11 +718,13 @@ async function submitPlanForm(existingId) {
   }
 
   if (existingId) {
-    await updatePlan(existingId, payload);
+    const ok = await updatePlan(existingId, payload);
+    if (!ok) { if (btn) btn.disabled = false; return; }
     delete state.historyCache[existingId]; // 방금 수정했으니 이력 캐시 무효화
   } else {
     const created = await createPlan(payload);
-    if (created) state.currentPlanId = created.id;
+    if (!created) { if (btn) btn.disabled = false; return; }
+    state.currentPlanId = created.id;
   }
   state.showPlanForm = false;
   state.editingPlanId = null;
@@ -785,6 +852,7 @@ function renderLogs() {
             ${l.blocker_reason ? ` · 막힘: ${escapeHtml(l.blocker_reason)}` : ''}
           </div>
         </div>
+        <i class="ti ti-edit" style="cursor:pointer; flex-shrink:0;" onclick="openEditLogModal('${l.id}')"></i>
       </div>`;
     }).join('');
     return `<div style="margin-bottom:16px;">
@@ -797,6 +865,30 @@ function renderLogs() {
 }
 
 function onLogsFilterChange(v) { state.logsPlanFilter = v; render(); }
+
+function openEditLogModal(logId) {
+  const log = state.allLogs.find(l => l.id === logId);
+  if (!log) return;
+  document.getElementById('dayModalCard').innerHTML = `
+    <div style="font-size:15px; margin-bottom:14px;">실행 기록 수정</div>
+    <div class="field-group"><label>실제로 걸린 시간(분)</label><input id="el-minutes" type="number" value="${log.actual_minutes}"></div>
+    <div class="field-group"><label>막힌 점 (선택)</label><textarea id="el-blocker" rows="3" placeholder="없으면 비워두세요">${escapeHtml(log.blocker_reason || '')}</textarea></div>
+    <div class="row" style="justify-content:flex-end; margin-top:10px;">
+      <button class="btn btn-ghost" onclick="closeDayModal()">취소</button>
+      <button class="btn btn-dark" onclick="confirmEditLog('${logId}')">저장</button>
+    </div>`;
+  document.getElementById('dayModalOverlay').classList.add('show');
+  document.getElementById('page').classList.add('faded');
+}
+
+async function confirmEditLog(logId) {
+  const minutes = Number(document.getElementById('el-minutes').value) || 0;
+  const blocker = document.getElementById('el-blocker').value.trim() || null;
+  const { error } = await sb.from('execution_logs').update({ actual_minutes: minutes, blocker_reason: blocker }).eq('id', logId);
+  if (error) { pdsAlert('수정 실패: ' + error.message); return; }
+  closeDayModal();
+  await refreshAndRender();
+}
 
 function renderTodos() {
   const plan = state.plans.find(p => p.id === state.currentPlanId);
@@ -885,15 +977,16 @@ function renderTodoForm() {
       <div class="field-group grow"><label>예상 시간(시간)</label><input id="tf-hours" type="number" step="0.25"></div>
     </div>
     <div class="row">
-      <button class="btn btn-dark" onclick="submitTodoForm()">추가</button>
+      <button class="btn btn-dark" onclick="submitTodoForm(this)">추가</button>
       <button class="btn btn-ghost" onclick="toggleTodoForm(false)">취소</button>
     </div>
   </div>`;
 }
 
-async function submitTodoForm() {
+async function submitTodoForm(btn) {
+  if (btn) { if (btn.disabled) return; btn.disabled = true; }
   const title = document.getElementById('tf-title').value.trim();
-  if (!title) { pdsAlert('제목을 입력하세요.'); return; }
+  if (!title) { pdsAlert('제목을 입력하세요.'); if (btn) btn.disabled = false; return; }
   const selectedPlanId = document.getElementById('tf-plan').value;
   const payload = {
     plan_id: selectedPlanId,
@@ -903,7 +996,8 @@ async function submitTodoForm() {
     tags: document.getElementById('tf-tags').value.split(',').map(s => s.trim()).filter(Boolean),
     estimated_hours: Number(document.getElementById('tf-hours').value) || null,
   };
-  await createTodo(payload);
+  const ok = await createTodo(payload);
+  if (!ok) { if (btn) btn.disabled = false; return; }
   state.showTodoForm = false;
   state.currentPlanId = selectedPlanId; // 방금 추가한 할 일이 속한 계획으로 전환해서 바로 보여줌
   await refreshAndRender();
