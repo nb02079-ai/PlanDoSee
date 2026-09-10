@@ -233,7 +233,7 @@ async function refreshAndRender() {
   try {
     if (state.tab === 'calendar') await loadAllTodosForMonth();
     if (state.tab === 'todos') { await loadTodosForCurrentPlan(); }
-    if (state.tab === 'review') { await loadTodosForCurrentPlan(); await computeReviewStats(); await loadPeriodReviewData(); await loadAllLogs(); }
+    if (state.tab === 'review') { await loadTodosForCurrentPlan(); await computeReviewStats(); await loadPeriodReviewData(); await loadAllLogs(); await loadAllTodosForMonth(); }
   } finally {
     pdsLoadingEnd();
   }
@@ -810,7 +810,7 @@ function computeStreakAndCounts(logs) {
   return { countMap, streak };
 }
 
-function renderHeatmapGrid(countMap) {
+function renderHeatmapGrid(countMap, dueByDate) {
   const weeks = 8;
   const cellHeight = 26;
   const today = kstNow();
@@ -826,23 +826,34 @@ function renderHeatmapGrid(countMap) {
       const ds = toDateStr(day);
       const count = countMap[ds] || 0;
       const isFuture = day > today;
+      const dueThatDay = (dueByDate && dueByDate[ds]) || [];
+      const missed = dueThatDay.length > 0 && !dueThatDay.every(t => t.status === 'done');
+
       let bg = 'var(--pill-bg)';
+      let label = `${ds} · 완료 ${count}건`;
       if (!isFuture) {
-        if (count >= 3) bg = 'var(--mint-fg)';
+        if (missed) {
+          bg = 'var(--peach-bg)';
+          label += ` · 마감 할일 중 미완료 있음`;
+        } else if (count >= 3) bg = 'var(--mint-fg)';
         else if (count === 2) bg = '#8FC79E';
         else if (count === 1) bg = 'var(--mint-bg)';
       }
-      cells += `<div title="${ds} · ${count}건" style="height:${cellHeight}px; border-radius:5px; background:${bg};"></div>`;
+      cells += `<div title="${label}" style="height:${cellHeight}px; border-radius:5px; background:${bg};"></div>`;
     }
   }
-  return `<div style="display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:5px;">${cells}</div>`;
+  return `<div style="display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:5px;">${cells}</div>
+    <div class="row" style="gap:12px; margin-top:8px;">
+      <span class="small-muted"><span style="display:inline-block; width:10px; height:10px; border-radius:3px; background:var(--mint-fg); vertical-align:-1px; margin-right:4px;"></span>완료</span>
+      <span class="small-muted"><span style="display:inline-block; width:10px; height:10px; border-radius:3px; background:var(--peach-bg); vertical-align:-1px; margin-right:4px;"></span>미완료 있음</span>
+    </div>`;
 }
 
-function renderStreakPanel(logs) {
+function renderStreakPanel(logs, dueByDate) {
   const { countMap, streak } = computeStreakAndCounts(logs);
   return `<div class="info-card" style="margin-bottom:14px;">
     <div style="font-size:20px; margin-bottom:10px;">${streak}<span style="font-size:12px; color:var(--muted);"> 일 연속 완료</span></div>
-    ${renderHeatmapGrid(countMap)}
+    ${renderHeatmapGrid(countMap, dueByDate)}
     <div class="small-muted" style="margin-top:8px;">최근 8주</div>
   </div>`;
 }
@@ -864,7 +875,12 @@ function renderLogs() {
       </select>
     </div>`;
 
-  const streakHtml = renderStreakPanel(logs);
+  let dueTodos = (state.allTodosForMonth || []).filter(t => t.due_date);
+  if (state.logsPlanFilter !== 'all') dueTodos = dueTodos.filter(t => t.plan_id === state.logsPlanFilter);
+  const dueByDate = {};
+  dueTodos.forEach(t => { (dueByDate[t.due_date] = dueByDate[t.due_date] || []).push(t); });
+
+  const streakHtml = renderStreakPanel(logs, dueByDate);
 
   if (!logs.length) {
     return filterHtml + streakHtml + `<div class="small-muted">아직 완료 기록이 없어요. 할일 탭에서 완료 처리를 하면 여기 쌓여요.</div>`;
