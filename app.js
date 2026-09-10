@@ -317,7 +317,7 @@ function renderCalendar() {
       const c = COLORS[(t.plans && t.plans.color) || 'mint'];
       const icon = t.status === 'done'
         ? `<i class="ti ti-check" style="color:${c.fg};"></i>`
-        : `<i class="ti ti-circle" style="color:var(--faint);"></i>`;
+        : `<i class="ti ti-x" style="color:var(--faint);"></i>`;
       const isLast = i === todayItems.length - 1;
       return `<div class="row" style="padding:7px 0; ${isLast ? '' : 'border-bottom:2px solid var(--faint);'}">
         ${icon}<span style="font-size:13px; ${t.status === 'done' ? 'text-decoration:line-through;color:var(--faint);' : ''}">${escapeHtml(t.title)}</span>
@@ -367,7 +367,7 @@ function renderCalendar() {
       const c = COLORS[(t.plans && t.plans.color) || 'mint'];
       const icon = t.status === 'done'
         ? `<i class="ti ti-check" style="font-size:9px;color:${c.fg}"></i>`
-        : `<i class="ti ti-circle" style="font-size:9px;color:var(--faint)"></i>`;
+        : `<i class="ti ti-x" style="font-size:9px;color:var(--faint)"></i>`;
       chips += `<div class="chip" style="background:${c.bg};color:${c.fg}"><span>${escapeHtml(t.title)}</span>${icon}</div>`;
     });
     if (extra > 0) chips += `<div class="small-muted" style="margin-top:1px;">+${extra}</div>`;
@@ -401,7 +401,7 @@ function pickDay(dateStr) {
     const c = COLORS[(t.plans && t.plans.color) || 'mint'];
     const icon = t.status === 'done'
       ? `<i class="ti ti-check" style="color:${c.fg}"></i>`
-      : `<i class="ti ti-circle" style="color:var(--faint)"></i>`;
+      : `<i class="ti ti-x" style="color:var(--faint)"></i>`;
     return `<div class="row" style="margin-bottom:8px;">${icon}<span>${escapeHtml(t.title)}</span>
       <span class="small-muted" style="margin-left:auto;">${escapeHtml((t.plans && t.plans.title) || '')}</span></div>`;
   }).join('');
@@ -1130,7 +1130,7 @@ function renderPeriodReviewSection() {
     const items = g.items.slice().sort((a, b) => (a.due_date || '').localeCompare(b.due_date || '')).map(t => {
       const icon = t.status === 'done'
         ? `<i class="ti ti-check" style="color:${c.fg}"></i>`
-        : `<i class="ti ti-circle" style="color:var(--faint)"></i>`;
+        : `<i class="ti ti-x" style="color:var(--faint)"></i>`;
       return `<div class="row" style="margin-bottom:4px;">${icon}<span style="font-size:13px; ${t.status === 'done' ? 'text-decoration:line-through;color:var(--faint);' : ''}">${escapeHtml(t.title)}</span>
         <span class="small-muted" style="margin-left:auto;">${t.due_date || ''}</span></div>`;
     }).join('');
