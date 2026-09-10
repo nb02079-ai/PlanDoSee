@@ -1383,7 +1383,7 @@ async function claimOrphanData() {
   let totalClaimed = 0;
   let hadError = false;
   for (const t of tables) {
-    const { data, error } = await sb.from(t).update({ user_id: uid }).is('user_id', null).select('id');
+    const { data, error } = await sb.from(t).update({ user_id: uid }).is('user_id', null).select('*');
     if (error) { hadError = true; console.error(t, error); continue; }
     totalClaimed += (data || []).length;
   }
