@@ -482,24 +482,37 @@ function shiftMonth(delta) {
 
 function pickDay(dateStr) {
   const items = (state.allTodosForMonth || []).filter(t => t.due_date === dateStr);
-  let rows = items.map(t => {
-    const c = COLORS[(t.plans && t.plans.color) || 'mint'];
-    const icon = t.status === 'done'
-      ? `<i class="ti ti-check" style="color:${c.fg}"></i>`
-      : `<i class="ti ti-x" style="color:var(--faint)"></i>`;
-    return `<div class="row" style="margin-bottom:8px;">${icon}<span>${escapeHtml(t.title)}</span>
-      <span class="small-muted" style="margin-left:auto;">${escapeHtml((t.plans && t.plans.title) || '')}</span></div>`;
-  }).join('');
-  if (!items.length) rows = `<div class="small-muted">그날 기록이 없습니다.</div>`;
 
-  const planId = items.length ? items[0].plan_id : state.currentPlanId;
-  document.getElementById('dayModalCard').innerHTML = `
-    <div onclick="closeDayModal()" style="cursor:pointer; font-size:12px; color:var(--muted); margin-bottom:10px;">← 닫기</div>
-    <div style="font-size:16px; margin-bottom:14px;">${dateStr}</div>
-    ${rows}
-    <div style="text-align:right; margin-top:16px;">
-      <span onclick="goToPlanDetail('${planId || ''}')" style="cursor:pointer; font-size:12px; color:var(--peach-fg);">계획 상세보기 →</span>
+  const groups = {};
+  items.forEach(t => {
+    const pid = t.plan_id;
+    if (!groups[pid]) groups[pid] = { plan: t.plans, planId: pid, items: [] };
+    groups[pid].items.push(t);
+  });
+
+  let body = Object.values(groups).map(g => {
+    const c = COLORS[(g.plan && g.plan.color) || 'mint'];
+    const rows = g.items.map(t => {
+      const icon = t.status === 'done'
+        ? `<i class="ti ti-check" style="color:${c.fg}"></i>`
+        : `<i class="ti ti-x" style="color:var(--faint)"></i>`;
+      return `<div class="row" style="margin-bottom:6px;">${icon}<span>${escapeHtml(t.title)}</span></div>`;
+    }).join('');
+    return `<div style="background:${c.bg}; border:1px solid ${c.fg}; border-radius:12px; padding:12px 14px; margin-bottom:10px;">
+      <div class="row" style="margin-bottom:8px;">
+        <div class="plan-color-dot" style="background:${c.fg}"></div>
+        <div style="font-size:13px; color:${c.fg};" class="grow">${escapeHtml((g.plan && g.plan.title) || '삭제된 계획')}</div>
+        <span onclick="goToPlanDetail('${g.planId || ''}')" style="cursor:pointer; font-size:11px; color:${c.fg}; white-space:nowrap;">계획 상세보기 →</span>
+      </div>
+      ${rows}
     </div>`;
+  }).join('');
+  if (!items.length) body = `<div class="small-muted">그날 기록이 없습니다.</div>`;
+
+  document.getElementById('dayModalCard').innerHTML = `
+    <div onclick="closeDayModal()" style="cursor:pointer; font-size:12px; color:var(--muted); margin-bottom:14px;">← 닫기</div>
+    <div style="font-size:16px; margin-bottom:14px;">${dateStr}</div>
+    ${body}`;
 
   document.getElementById('dayModalOverlay').classList.add('show');
   document.getElementById('page').classList.add('faded');
