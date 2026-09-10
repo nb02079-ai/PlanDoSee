@@ -62,6 +62,76 @@ function initSupabase() {
   return true;
 }
 
+// ---------- 인증 (Supabase Auth) ----------
+let currentUser = null;
+let authMode = 'login'; // 'login' | 'signup'
+
+function setAuthMode(mode) {
+  authMode = mode;
+  document.getElementById('auth-tab-login').classList.toggle('active', mode === 'login');
+  document.getElementById('auth-tab-signup').classList.toggle('active', mode === 'signup');
+  document.getElementById('authSubmitBtn').textContent = mode === 'login' ? '로그인' : '가입';
+  document.getElementById('auth-password').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
+  hideAuthError();
+}
+
+function showAuthError(message) {
+  const el = document.getElementById('authError');
+  el.textContent = message;
+  el.style.display = 'block';
+}
+function hideAuthError() {
+  const el = document.getElementById('authError');
+  el.style.display = 'none';
+}
+
+async function submitAuth(btn) {
+  if (btn.disabled) return;
+  hideAuthError();
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  if (!email || !password) { showAuthError('이메일과 비밀번호를 입력하세요.'); return; }
+
+  btn.disabled = true;
+  pdsLoadingStart();
+  try {
+    if (authMode === 'signup') {
+      const { data, error } = await sb.auth.signUp({ email, password });
+      if (error) { showAuthError(error.message); return; }
+      if (data.user && !data.session) {
+        showAuthError('가입 확인 메일을 보냈어요. 메일함을 확인한 뒤 로그인해주세요.');
+        setAuthMode('login');
+      }
+      // data.session이 바로 있으면(이메일 확인 없이 가입 즉시 로그인 설정된 프로젝트) onAuthStateChange가 알아서 처리
+    } else {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) { showAuthError(error.message); return; }
+    }
+  } finally {
+    btn.disabled = false;
+    pdsLoadingEnd();
+  }
+}
+
+async function doLogout() {
+  pdsLoadingStart();
+  await sb.auth.signOut();
+  pdsLoadingEnd();
+}
+
+function updateAuthUI() {
+  const gate = document.getElementById('authGate');
+  const inner = document.getElementById('appInner');
+  if (currentUser) {
+    gate.classList.add('hidden');
+    inner.classList.remove('hidden');
+    document.getElementById('accountEmail').textContent = currentUser.email;
+  } else {
+    gate.classList.remove('hidden');
+    inner.classList.add('hidden');
+  }
+}
+
 // ---------- 날짜 유틸 (KST 기준) ----------
 function kstNow() {
   const now = new Date();
@@ -1292,9 +1362,39 @@ async function submitReview() {
 function renderSettings() {
   return `
     <div style="font-size:15px; margin-bottom:12px;">설정</div>
-    <div class="notice" style="margin-bottom:14px;">지금은 로그인이 없어 링크를 아는 사람은 누구나 볼 수 있습니다. 남이 봐도 괜찮은 내용만 넣으세요.</div>
-    <button class="btn btn-dark" onclick="exportAllData()"><i class="ti ti-download"></i> 내 자료 내보내기</button>
+    <div class="info-card" style="margin-bottom:14px;">
+      <div><span class="k">로그인 계정</span> &nbsp; ${escapeHtml(currentUser ? currentUser.email : '')}</div>
+    </div>
+    <div style="margin-bottom:10px;">
+      <button class="btn btn-dark" onclick="exportAllData()"><i class="ti ti-download"></i> 내 자료 내보내기</button>
+    </div>
+    <div style="border-top:1px solid var(--pill-bg); padding-top:14px;">
+      <div class="small-muted" style="margin-bottom:8px;">과제 6에서 로그인 없이 넣어뒀던 자료가 있다면, 아래 버튼으로 지금 이 계정 소유로 가져올 수 있어요. (한 번만 누르면 됩니다)</div>
+      <button class="btn btn-ghost" onclick="claimOrphanData()">예전 자료 내 계정으로 가져오기</button>
+    </div>
   `;
+}
+
+async function claimOrphanData() {
+  if (!currentUser) return;
+  pdsLoadingStart();
+  const uid = currentUser.id;
+  const tables = ['plans', 'todos', 'execution_logs', 'plan_history', 'reviews', 'period_reviews'];
+  let totalClaimed = 0;
+  let hadError = false;
+  for (const t of tables) {
+    const { data, error } = await sb.from(t).update({ user_id: uid }).is('user_id', null).select('id');
+    if (error) { hadError = true; console.error(t, error); continue; }
+    totalClaimed += (data || []).length;
+  }
+  pdsLoadingEnd();
+  if (hadError) {
+    pdsAlert('일부 자료를 가져오는 중 오류가 있었어요. 콘솔을 확인해주세요.');
+  } else {
+    pdsAlert(`총 ${totalClaimed}개 행을 이 계정으로 가져왔어요. 다 됐으면 schema.sql 맨 아래 "claim orphan" 정책들을 SQL Editor에서 DROP 해서 이 통로를 닫아주세요.`);
+  }
+  await loadPlans();
+  await refreshAndRender();
 }
 
 async function exportAllData() {
@@ -1336,6 +1436,31 @@ function escapeAttr(s) { return escapeHtml(s); }
     document.getElementById('page').innerHTML = '<div class="small-muted">Supabase 설정 후 새로고침 해주세요.</div>';
     return;
   }
-  await loadPlans();
-  await refreshAndRender();
+
+  sb.auth.onAuthStateChange(async (event, session) => {
+    const wasLoggedIn = !!currentUser;
+    currentUser = session ? session.user : null;
+    updateAuthUI();
+    if (currentUser && !wasLoggedIn) {
+      // 방금 로그인/가입 확인됨 → 내 데이터 불러오기 시작
+      await loadPlans();
+      await refreshAndRender();
+    }
+    if (!currentUser && wasLoggedIn) {
+      // 로그아웃 → 캐시 비우기
+      state.plans = [];
+      state.todos = [];
+      state.allTodosForMonth = [];
+      state.allLogs = [];
+      state.currentPlanId = null;
+    }
+  });
+
+  const { data: { session } } = await sb.auth.getSession();
+  currentUser = session ? session.user : null;
+  updateAuthUI();
+  if (currentUser) {
+    await loadPlans();
+    await refreshAndRender();
+  }
 })();

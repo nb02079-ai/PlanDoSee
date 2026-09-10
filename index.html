@@ -154,30 +154,22 @@
     max-width:380px; width:100%; box-shadow:0 14px 34px rgba(0,0,0,0.22);
   }
 
-  #appInner{ position:relative; perspective:1800px; }
-  #coverLayer{
-    position:absolute; inset:0; z-index:50; cursor:pointer;
-    border-radius:16px; backface-visibility:hidden; transform-origin:left center;
-    transition:transform .7s cubic-bezier(.4,0,.2,1), box-shadow .7s;
+  #appInner{ position:relative; }
+  #authGate{
+    display:flex; align-items:center; justify-content:center; padding:20px 0;
   }
-  .cover-inner{
-    position:absolute; inset:0; border-radius:16px; overflow:hidden;
+  .auth-card{ width:100%; max-width:380px; border-radius:16px; overflow:hidden; box-shadow:0 4px 18px rgba(0,0,0,0.08); }
+  .auth-brand{
+    text-align:center; padding:26px 20px 18px;
     background:linear-gradient(160deg, #2E2B27, #201D1A);
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
   }
-  .cover-badge{
-    position:absolute; top:-14px; left:50%; transform:translateX(-50%) rotate(-3deg);
-    background:#EE7B6A; color:#FFFFFF; font-weight:700; font-size:14px;
-    padding:7px 22px; border-radius:999px; box-shadow:0 3px 8px rgba(0,0,0,0.2);
-    z-index:2; white-space:nowrap;
-  }
-  .cover-title{ font-size:34px; letter-spacing:5px; color:#D9CBA8; text-shadow:0 1px 0 rgba(0,0,0,0.5); }
-  .cover-subtitle{ font-size:11px; letter-spacing:4px; color:#C9BB98; margin-top:10px; text-shadow:0 1px 0 rgba(0,0,0,0.4); }
-  .cover-year{ font-size:10px; letter-spacing:2px; color:#9C9184; margin-top:40px; }
-  .cover-hint{ font-size:11px; letter-spacing:1px; color:#7A7568; margin-top:8px; }
-  .cover-spineshadow{ position:absolute; left:0; top:0; bottom:0; width:16px; background:linear-gradient(90deg, rgba(0,0,0,0.35), transparent); }
+  .auth-brand .title{ font-size:26px; letter-spacing:4px; color:#D9CBA8; text-shadow:0 1px 0 rgba(0,0,0,0.5); }
+  .auth-brand .subtitle{ font-size:10px; letter-spacing:3px; color:#C9BB98; margin-top:6px; }
+  .auth-body{ background:var(--card); padding:22px; }
+  .auth-error{ color:var(--rose-fg); font-size:12px; margin-bottom:10px; display:none; }
 </style>
 </head>
+
 <body>
 <div id="pdsLoadingBar"><div class="bar"></div></div>
 
@@ -193,9 +185,10 @@
   <div class="wrap">
     <div class="bookmark"></div>
 
-    <div id="appInner">
-      <div class="notice">
-        지금은 로그인이 없어 링크를 아는 사람은 누구나 볼 수 있습니다. 남이 봐도 괜찮은 내용만 넣으세요.
+    <div id="appInner" class="hidden">
+      <div id="accountBar" class="row" style="margin-bottom:14px;">
+        <span id="accountEmail" class="small-muted grow"></span>
+        <button class="btn btn-ghost" onclick="doLogout()">로그아웃</button>
       </div>
 
       <div id="setupWarning" class="setup-warning hidden">
@@ -211,15 +204,23 @@
       </div>
 
       <div class="page page-fade" id="page">불러오는 중...</div>
+    </div>
 
-      <div id="coverLayer" onclick="openCover()">
-        <div class="cover-badge">2026</div>
-        <div class="cover-inner">
-          <div class="cover-spineshadow"></div>
-          <div class="cover-title">P·D·S</div>
-          <div class="cover-subtitle">PLAN · DO · SEE</div>
-          <div class="cover-year">1 YEAR DIARY</div>
-          <div class="cover-hint">탭하여 열기</div>
+    <div id="authGate">
+      <div class="auth-card">
+        <div class="auth-brand">
+          <div class="title">P·D·S</div>
+          <div class="subtitle">PLAN · DO · SEE</div>
+        </div>
+        <div class="auth-body">
+          <div class="tabs" style="margin-bottom:16px;">
+            <button class="tab active" id="auth-tab-login" onclick="setAuthMode('login')">로그인</button>
+            <button class="tab" id="auth-tab-signup" onclick="setAuthMode('signup')">가입</button>
+          </div>
+          <div class="field-group"><label>이메일</label><input id="auth-email" type="email" autocomplete="username"></div>
+          <div class="field-group"><label>비밀번호</label><input id="auth-password" type="password" autocomplete="current-password"></div>
+          <div id="authError" class="auth-error"></div>
+          <button class="btn btn-dark" id="authSubmitBtn" style="width:100%; justify-content:center;" onclick="submitAuth(this)">로그인</button>
         </div>
       </div>
     </div>
@@ -235,17 +236,7 @@
   const SUPABASE_URL = "https://hskdfyicbmsgwentwnop.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_szvYK65O-J59c-IKit03sg_JZyXIbe3";
   // ===============================
-
-  function openCover(){
-    const el = document.getElementById('coverLayer');
-    el.style.boxShadow = '6px 4px 18px rgba(0,0,0,0.25)';
-    el.style.transform = 'rotateY(-170deg)';
-    el.addEventListener('transitionend', function handler(){
-      el.removeEventListener('transitionend', handler);
-      el.style.display = 'none';
-    });
-  }
 </script>
-<script src="app.js?v=29"></script>
+<script src="app.js?v=30"></script>
 </body>
 </html>
