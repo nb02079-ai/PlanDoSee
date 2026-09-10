@@ -1150,7 +1150,6 @@ function renderPeriodReviewSection() {
     <div class="small-muted" style="margin-bottom:6px;">${state.reviewPeriodType === 'weekly' ? '이번 주' : '이번 달'} 리뷰</div>
     <textarea id="periodReviewNote" rows="4" style="width:100%; margin-bottom:8px;" placeholder="자유롭게 소감을 적어보세요">${escapeHtml(state.periodReviewNote)}</textarea>
     <button class="btn btn-dark" onclick="savePeriodReview()">저장</button>
-    <div style="border-top:1px solid var(--pill-bg); margin:20px 0;"></div>
   `;
 }
 
@@ -1207,11 +1206,11 @@ function renderReview() {
   const periodSection = renderPeriodReviewSection();
   const planPickerHtml = state.plans.length ? renderPlanSelector(false) : '';
 
-  if (!plan) return subToggle + periodSection + planPickerHtml + `<div class="small-muted">계획별 돌아보기를 보려면 계획을 먼저 만들어주세요.</div>`;
+  if (!plan) return subToggle + `<div class="small-muted" style="margin-bottom:16px;">계획별 돌아보기를 보려면 계획을 먼저 만들어주세요.</div>` + planPickerHtml + periodSection;
   const s = state.reviewStats || { planCount: 0, doneCount: 0, delayedCount: 0, blockedCount: 0, estimatedTotal: 0, actualTotal: 0, diff: 0 };
   const { planCount, doneCount, delayedCount, blockedCount, estimatedTotal, actualTotal, diff } = s;
 
-  return subToggle + periodSection + `
+  return subToggle + `
     <div style="font-size:15px; margin-bottom:10px;">계획별 돌아보기</div>
     ${planPickerHtml}
     <div class="review-stats">
@@ -1224,6 +1223,8 @@ function renderReview() {
     <div class="small-muted" style="margin-bottom:6px;">고칠 점 한 줄</div>
     <input id="reviewNote" class="grow" style="width:100%; margin-bottom:10px;" placeholder="다음 계획에 넘길 한 줄">
     <button class="btn btn-dark" onclick="submitReview()">다음 계획으로 넘기기</button>
+    <div style="border-top:1px solid var(--pill-bg); margin:20px 0;"></div>
+    ${periodSection}
   `;
 }
 
