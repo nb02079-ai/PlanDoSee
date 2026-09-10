@@ -50,6 +50,7 @@ let state = {
   allLogs: [],           // 기록 탭: 전체 실행기록(할일/계획 join)
   logsPlanFilter: 'all', // 기록 탭 필터
   showEndedPlans: false, // 계획 탭: 지난 계획 펼침 여부
+  reviewSubView: 'period', // 돌아보기 탭: 'period' | 'logs'
 };
 
 function initSupabase() {
@@ -232,8 +233,7 @@ async function refreshAndRender() {
   try {
     if (state.tab === 'calendar') await loadAllTodosForMonth();
     if (state.tab === 'todos') { await loadTodosForCurrentPlan(); }
-    if (state.tab === 'logs') { await loadAllLogs(); }
-    if (state.tab === 'review') { await loadTodosForCurrentPlan(); await computeReviewStats(); await loadPeriodReviewData(); }
+    if (state.tab === 'review') { await loadTodosForCurrentPlan(); await computeReviewStats(); await loadPeriodReviewData(); await loadAllLogs(); }
   } finally {
     pdsLoadingEnd();
   }
@@ -277,7 +277,6 @@ function render() {
   if (state.tab === 'calendar') page.innerHTML = renderCalendar();
   if (state.tab === 'plans') page.innerHTML = renderPlans();
   if (state.tab === 'todos') page.innerHTML = renderTodos();
-  if (state.tab === 'logs') page.innerHTML = renderLogs();
   if (state.tab === 'review') page.innerHTML = renderReview();
   if (state.tab === 'settings') page.innerHTML = renderSettings();
 
@@ -1194,15 +1193,25 @@ async function savePeriodReview() {
 }
 
 function renderReview() {
+  const subToggle = `
+    <div class="row" style="margin-bottom:14px;">
+      <div class="tab ${state.reviewSubView === 'period' ? 'active' : ''}" style="font-size:12px; padding:6px 14px;" onclick="setReviewSubView('period')">기간 리뷰</div>
+      <div class="tab ${state.reviewSubView === 'logs' ? 'active' : ''}" style="font-size:12px; padding:6px 14px;" onclick="setReviewSubView('logs')">전체 기록</div>
+    </div>`;
+
+  if (state.reviewSubView === 'logs') {
+    return subToggle + renderLogs();
+  }
+
   const plan = state.plans.find(p => p.id === state.currentPlanId);
   const periodSection = renderPeriodReviewSection();
   const planPickerHtml = state.plans.length ? renderPlanSelector(false) : '';
 
-  if (!plan) return periodSection + planPickerHtml + `<div class="small-muted">계획별 돌아보기를 보려면 계획을 먼저 만들어주세요.</div>`;
+  if (!plan) return subToggle + periodSection + planPickerHtml + `<div class="small-muted">계획별 돌아보기를 보려면 계획을 먼저 만들어주세요.</div>`;
   const s = state.reviewStats || { planCount: 0, doneCount: 0, delayedCount: 0, blockedCount: 0, estimatedTotal: 0, actualTotal: 0, diff: 0 };
   const { planCount, doneCount, delayedCount, blockedCount, estimatedTotal, actualTotal, diff } = s;
 
-  return periodSection + `
+  return subToggle + periodSection + `
     <div style="font-size:15px; margin-bottom:10px;">계획별 돌아보기</div>
     ${planPickerHtml}
     <div class="review-stats">
@@ -1217,6 +1226,8 @@ function renderReview() {
     <button class="btn btn-dark" onclick="submitReview()">다음 계획으로 넘기기</button>
   `;
 }
+
+function setReviewSubView(v) { state.reviewSubView = v; render(); }
 
 async function drillDown(kind) {
   state.reviewFilter = kind === 'all' ? null : kind;
