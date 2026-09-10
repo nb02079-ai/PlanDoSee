@@ -317,7 +317,7 @@ function renderCalendar() {
       const c = COLORS[(t.plans && t.plans.color) || 'mint'];
       const icon = t.status === 'done'
         ? `<i class="ti ti-check" style="color:${c.fg};"></i>`
-        : `<i class="ti ti-circle" style="color:var(--faint);"></i>`;
+        : `<i class="ti ti-circle" style="color:var(--faint); cursor:pointer;" onclick="toggleComplete('${t.id}')"></i>`;
       const isLast = i === todayItems.length - 1;
       return `<div class="row" style="padding:7px 0; ${isLast ? '' : 'border-bottom:2px solid var(--faint);'}">
         ${icon}<span style="font-size:13px; ${t.status === 'done' ? 'text-decoration:line-through;color:var(--faint);' : ''}">${escapeHtml(t.title)}</span>
@@ -1044,8 +1044,12 @@ async function submitTodoForm(btn) {
   await refreshAndRender();
 }
 
+function findTodoAnywhere(id) {
+  return state.todos.find(x => x.id === id) || (state.allTodosForMonth || []).find(x => x.id === id);
+}
+
 async function toggleComplete(id) {
-  const t = state.todos.find(x => x.id === id);
+  const t = findTodoAnywhere(id);
   if (!t) return;
   if (t.status === 'done') {
     await uncompleteTodo(t);
@@ -1056,7 +1060,7 @@ async function toggleComplete(id) {
 }
 
 function openCompleteModal(todoId) {
-  const t = state.todos.find(x => x.id === todoId);
+  const t = findTodoAnywhere(todoId);
   if (!t) return;
   const defaultMinutes = t.estimated_hours ? Math.round(t.estimated_hours * 60) : 30;
   document.getElementById('dayModalCard').innerHTML = `
@@ -1072,7 +1076,7 @@ function openCompleteModal(todoId) {
 }
 
 async function confirmCompleteModal(todoId) {
-  const t = state.todos.find(x => x.id === todoId);
+  const t = findTodoAnywhere(todoId);
   if (!t) return;
   const minutes = Number(document.getElementById('cm-minutes').value) || 0;
   const blocker = document.getElementById('cm-blocker').value.trim() || null;
