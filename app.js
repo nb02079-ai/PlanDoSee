@@ -317,7 +317,7 @@ function renderCalendar() {
       const c = COLORS[(t.plans && t.plans.color) || 'mint'];
       const icon = t.status === 'done'
         ? `<i class="ti ti-check" style="color:${c.fg};"></i>`
-        : `<i class="ti ti-x" style="color:var(--faint);"></i>`;
+        : `<i class="ti ti-circle" style="color:var(--faint);"></i>`;
       const isLast = i === todayItems.length - 1;
       return `<div class="row" style="padding:7px 0; ${isLast ? '' : 'border-bottom:2px solid var(--faint);'}">
         ${icon}<span style="font-size:13px; ${t.status === 'done' ? 'text-decoration:line-through;color:var(--faint);' : ''}">${escapeHtml(t.title)}</span>
