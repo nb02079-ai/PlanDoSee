@@ -1365,36 +1365,8 @@ function renderSettings() {
     <div class="info-card" style="margin-bottom:14px;">
       <div><span class="k">로그인 계정</span> &nbsp; ${escapeHtml(currentUser ? currentUser.email : '')}</div>
     </div>
-    <div style="margin-bottom:10px;">
-      <button class="btn btn-dark" onclick="exportAllData()"><i class="ti ti-download"></i> 내 자료 내보내기</button>
-    </div>
-    <div style="border-top:1px solid var(--pill-bg); padding-top:14px;">
-      <div class="small-muted" style="margin-bottom:8px;">과제 6에서 로그인 없이 넣어뒀던 자료가 있다면, 아래 버튼으로 지금 이 계정 소유로 가져올 수 있어요. (한 번만 누르면 됩니다)</div>
-      <button class="btn btn-ghost" onclick="claimOrphanData()">예전 자료 내 계정으로 가져오기</button>
-    </div>
+    <button class="btn btn-dark" onclick="exportAllData()"><i class="ti ti-download"></i> 내 자료 내보내기</button>
   `;
-}
-
-async function claimOrphanData() {
-  if (!currentUser) return;
-  pdsLoadingStart();
-  const uid = currentUser.id;
-  const tables = ['plans', 'todos', 'execution_logs', 'plan_history', 'reviews', 'period_reviews'];
-  let totalClaimed = 0;
-  let hadError = false;
-  for (const t of tables) {
-    const { data, error } = await sb.from(t).update({ user_id: uid }).is('user_id', null).select('*');
-    if (error) { hadError = true; console.error(t, error); continue; }
-    totalClaimed += (data || []).length;
-  }
-  pdsLoadingEnd();
-  if (hadError) {
-    pdsAlert('일부 자료를 가져오는 중 오류가 있었어요. 콘솔을 확인해주세요.');
-  } else {
-    pdsAlert(`총 ${totalClaimed}개 행을 이 계정으로 가져왔어요. 다 됐으면 schema.sql 맨 아래 "claim orphan" 정책들을 SQL Editor에서 DROP 해서 이 통로를 닫아주세요.`);
-  }
-  await loadPlans();
-  await refreshAndRender();
 }
 
 async function exportAllData() {
