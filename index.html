@@ -118,6 +118,28 @@
   a{color:var(--peach-fg);}
   .ti{ font-family:"tabler-icons" !important; font-style:normal !important; }
 
+  .icon-btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:32px; height:32px; border:none; background:transparent;
+    border-radius:8px; cursor:pointer; color:var(--muted); flex-shrink:0; padding:0;
+  }
+  .icon-btn:hover{ background:var(--pill-bg); }
+  .icon-btn.danger{ color:var(--rose-fg); }
+  .icon-btn.danger:hover{ background:var(--rose-bg); }
+
+  #pdsLoadingBar{
+    position:fixed; top:0; left:0; right:0; height:3px; z-index:2000;
+    overflow:hidden; opacity:0; transition:opacity .2s ease; pointer-events:none;
+  }
+  #pdsLoadingBar.active{ opacity:1; }
+  #pdsLoadingBar .bar{
+    position:absolute; top:0; left:-30%; width:30%; height:100%;
+    background:var(--peach-fg); animation:pdsLoadingSlide 1s ease-in-out infinite;
+  }
+  @keyframes pdsLoadingSlide{
+    0%{ left:-30%; } 50%{ left:60%; } 100%{ left:110%; }
+  }
+
   .page-fade{ transition:opacity .25s ease, filter .25s ease; }
   .page-fade.faded{ opacity:0.35; filter:blur(1px); pointer-events:none; }
 
@@ -157,6 +179,8 @@
 </style>
 </head>
 <body>
+<div id="pdsLoadingBar"><div class="bar"></div></div>
+
 <div class="shell">
   <div class="spine">
     <span class="ring"></span>
@@ -223,6 +247,6 @@
     });
   }
 </script>
-<script src="app.js?v=15"></script>
+<script src="app.js?v=16"></script>
 </body>
 </html>

@@ -12,6 +12,19 @@ const COLORS = {
 };
 
 let sb = null;
+let pdsLoadingCount = 0;
+function pdsLoadingStart() {
+  pdsLoadingCount++;
+  const el = document.getElementById('pdsLoadingBar');
+  if (el) el.classList.add('active');
+}
+function pdsLoadingEnd() {
+  pdsLoadingCount = Math.max(0, pdsLoadingCount - 1);
+  if (pdsLoadingCount === 0) {
+    const el = document.getElementById('pdsLoadingBar');
+    if (el) el.classList.remove('active');
+  }
+}
 let state = {
   tab: 'calendar',
   monthCursor: new Date(), // 달력에 표시 중인 달
@@ -215,10 +228,15 @@ async function switchTab(tab) {
 
 async function refreshAndRender() {
   if (!sb) { render(); return; }
-  if (state.tab === 'calendar') await loadAllTodosForMonth();
-  if (state.tab === 'todos') { await loadTodosForCurrentPlan(); }
-  if (state.tab === 'logs') { await loadAllLogs(); }
-  if (state.tab === 'review') { await loadTodosForCurrentPlan(); await computeReviewStats(); await loadPeriodReviewData(); }
+  pdsLoadingStart();
+  try {
+    if (state.tab === 'calendar') await loadAllTodosForMonth();
+    if (state.tab === 'todos') { await loadTodosForCurrentPlan(); }
+    if (state.tab === 'logs') { await loadAllLogs(); }
+    if (state.tab === 'review') { await loadTodosForCurrentPlan(); await computeReviewStats(); await loadPeriodReviewData(); }
+  } finally {
+    pdsLoadingEnd();
+  }
   render();
 }
 
@@ -359,9 +377,9 @@ function renderCalendar() {
 
   const monthLabel = `${year}년 ${month + 1}월`;
   return `${todayHtml}<div class="row" style="justify-content:space-between; margin-bottom:10px;">
-      <button class="btn btn-ghost" onclick="shiftMonth(-1)"><i class="ti ti-chevron-left"></i></button>
+      <button class="btn btn-ghost" aria-label="이전 달" onclick="shiftMonth(-1)"><i class="ti ti-chevron-left"></i></button>
       <div style="font-size:14px;">${monthLabel}</div>
-      <button class="btn btn-ghost" onclick="shiftMonth(1)"><i class="ti ti-chevron-right"></i></button>
+      <button class="btn btn-ghost" aria-label="다음 달" onclick="shiftMonth(1)"><i class="ti ti-chevron-right"></i></button>
     </div>
     ${goalsHtml}
     ${grid}`;
@@ -450,7 +468,7 @@ function renderPlanSelector(showCreateBtn) {
   const selectOptions = state.plans.map(p => `<option value="${p.id}" ${p.id === state.currentPlanId ? 'selected' : ''}>${escapeHtml(p.title)}</option>`).join('');
   return `<div class="row" style="margin-bottom:12px;">
     <select class="grow" onchange="selectPlan(this.value)">${selectOptions}</select>
-    ${showCreateBtn ? `<button class="btn btn-ghost" onclick="togglePlanForm(true)"><i class="ti ti-plus"></i></button>` : ''}
+    ${showCreateBtn ? `<button class="btn btn-ghost" aria-label="새 계획 만들기" onclick="togglePlanForm(true)"><i class="ti ti-plus"></i></button>` : ''}
   </div>`;
 }
 
@@ -507,8 +525,8 @@ function renderPlanCard(plan) {
       <div class="row" style="margin-bottom:10px;">
         <div class="plan-color-dot" style="background:${c.fg}"></div>
         <div style="font-size:16px;" class="grow">${escapeHtml(plan.title)}</div>
-        <span class="btn btn-ghost" onclick="toggleEditPlan('${plan.id}')" style="font-size:11px;"><i class="ti ti-edit"></i></span>
-        <span class="btn btn-ghost" onclick="confirmDeletePlan('${plan.id}')" style="font-size:11px;"><i class="ti ti-trash"></i></span>
+        <button class="icon-btn" aria-label="계획 수정" onclick="toggleEditPlan('${plan.id}')"><i class="ti ti-edit"></i></button>
+        <button class="icon-btn danger" aria-label="계획 삭제" onclick="confirmDeletePlan('${plan.id}')"><i class="ti ti-trash"></i></button>
       </div>
       <div class="info-card">
         <div><span class="k">기간</span> &nbsp; ${plan.period_start} – ${plan.period_end || '무기한'}</div>
@@ -557,8 +575,10 @@ async function openAutoFillModal(planId) {
   const { start, end } = getPeriodRange(plan.cadence, kstNow());
   const startStr = toDateStr(start), endStr = toDateStr(end);
 
+  pdsLoadingStart();
   const { data, error } = await sb.from('todos').select('id, due_date')
     .eq('plan_id', planId).gte('due_date', startStr).lte('due_date', endStr);
+  pdsLoadingEnd();
   if (error) { pdsAlert('불러오기 실패: ' + error.message); return; }
 
   const usedDates = new Set((data || []).map(t => t.due_date));
@@ -856,7 +876,7 @@ function renderLogs() {
             ${l.blocker_reason ? ` · 막힘: ${escapeHtml(l.blocker_reason)}` : ''}
           </div>
         </div>
-        <i class="ti ti-edit" style="cursor:pointer; flex-shrink:0;" onclick="openEditLogModal('${l.id}')"></i>
+        <button class="icon-btn" aria-label="실행 기록 수정" onclick="openEditLogModal('${l.id}')"><i class="ti ti-edit"></i></button>
       </div>`;
     }).join('');
     return `<div style="margin-bottom:16px;">
@@ -934,8 +954,8 @@ function renderTodos() {
         <div style="font-size:13px; ${t.status === 'done' ? 'text-decoration:line-through;color:var(--faint);' : ''}">${escapeHtml(t.title)}</div>
         <div class="small-muted">${t.due_date || '마감 없음'} · ${prioLabel(t.priority)} ${(t.tags || []).map(tag => `· ${escapeHtml(tag)}`).join(' ')}</div>
       </div>
-      <i class="ti ti-edit" style="cursor:pointer;" onclick="openEditTodoModal('${t.id}')"></i>
-      <i class="ti ti-trash" style="cursor:pointer;" onclick="removeTodo('${t.id}')"></i>
+      <button class="icon-btn" aria-label="할 일 수정" onclick="openEditTodoModal('${t.id}')"><i class="ti ti-edit"></i></button>
+      <button class="icon-btn danger" aria-label="할 일 삭제" onclick="removeTodo('${t.id}')"><i class="ti ti-trash"></i></button>
     </div>
   `).join('');
 
@@ -953,7 +973,7 @@ function renderTodos() {
           <option value="in_progress">진행중</option>
           <option value="done">완료</option>
         </select>
-        <button class="btn btn-ghost" onclick="toggleTodoForm(true)"><i class="ti ti-plus"></i></button>
+        <button class="btn btn-ghost" aria-label="할 일 추가" onclick="toggleTodoForm(true)"><i class="ti ti-plus"></i></button>
       </div>
       <div class="small-muted" style="margin-bottom:10px;">정렬 기준: 마감일 → 우선순위 → 등록순</div>
       ${state.showTodoForm ? renderTodoForm() : ''}
@@ -1123,8 +1143,8 @@ function renderPeriodReviewSection() {
       <div class="tab ${state.reviewPeriodType === 'weekly' ? 'active' : ''}" style="font-size:12px; padding:6px 14px;" onclick="setReviewPeriodType('weekly')">주간</div>
       <div class="tab ${state.reviewPeriodType === 'monthly' ? 'active' : ''}" style="font-size:12px; padding:6px 14px;" onclick="setReviewPeriodType('monthly')">월간</div>
       <span class="grow"></span>
-      <button class="btn btn-ghost" onclick="shiftReviewPeriod(-1)"><i class="ti ti-chevron-left"></i></button>
-      <button class="btn btn-ghost" onclick="shiftReviewPeriod(1)"><i class="ti ti-chevron-right"></i></button>
+      <button class="btn btn-ghost" aria-label="이전 기간" onclick="shiftReviewPeriod(-1)"><i class="ti ti-chevron-left"></i></button>
+      <button class="btn btn-ghost" aria-label="다음 기간" onclick="shiftReviewPeriod(1)"><i class="ti ti-chevron-right"></i></button>
     </div>
     <div style="font-size:14px; margin-bottom:12px;">${label}</div>
     ${groups || `<div class="small-muted" style="margin-bottom:12px;">이 기간에 마감일이 있는 할 일이 없어요.</div>`}
@@ -1229,6 +1249,7 @@ function renderSettings() {
 
 async function exportAllData() {
   if (!sb) { pdsAlert('Supabase 설정이 필요해요.'); return; }
+  pdsLoadingStart();
   const [plans, planHistory, todos, logs, reviews] = await Promise.all([
     sb.from('plans').select('*'),
     sb.from('plan_history').select('*'),
@@ -1236,6 +1257,7 @@ async function exportAllData() {
     sb.from('execution_logs').select('*'),
     sb.from('reviews').select('*'),
   ]);
+  pdsLoadingEnd();
   const exportData = {
     exported_at: new Date().toISOString(),
     plans: plans.data, plan_history: planHistory.data, todos: todos.data,
