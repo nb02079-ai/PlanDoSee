@@ -7,6 +7,8 @@ const COLORS = {
   lavender: { bg: 'var(--lavender-bg)', fg: 'var(--lavender-fg)' },
   peach:    { bg: 'var(--peach-bg)',    fg: 'var(--peach-fg)' },
   butter:   { bg: 'var(--butter-bg)',   fg: 'var(--butter-fg)' },
+  sky:      { bg: 'var(--sky-bg)',      fg: 'var(--sky-fg)' },
+  rose:     { bg: 'var(--rose-bg)',     fg: 'var(--rose-fg)' },
 };
 
 let sb = null;
@@ -673,6 +675,8 @@ function renderPlanForm(existing) {
         <option value="lavender" ${p.color === 'lavender' ? 'selected' : ''}>라벤더</option>
         <option value="peach" ${p.color === 'peach' ? 'selected' : ''}>피치</option>
         <option value="butter" ${p.color === 'butter' ? 'selected' : ''}>버터</option>
+        <option value="sky" ${p.color === 'sky' ? 'selected' : ''}>스카이</option>
+        <option value="rose" ${p.color === 'rose' ? 'selected' : ''}>로즈</option>
       </select>
     </div>
     <div class="row">

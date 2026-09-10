@@ -14,6 +14,8 @@
     --lavender-bg:#E4DEF5; --lavender-fg:#6B5B95;
     --peach-bg:#FCE4DC; --peach-fg:#C4623A;
     --butter-bg:#FBF0C8; --butter-fg:#A98A1E;
+    --sky-bg:#DCEAF7; --sky-fg:#3E6E96;
+    --rose-bg:#F5DCE3; --rose-fg:#9C4F63;
     --today-bg:#FFF3EC; --today-ring:#F3B99A;
   }
   *{box-sizing:border-box;}
@@ -80,7 +82,7 @@
   .cal-cell.today{background:var(--today-bg); box-shadow:inset 0 0 0 1.5px var(--today-ring);}
   .cal-daynum{font-size:11px; color:var(--muted); line-height:14px;}
   .cal-daynum.today{color:var(--peach-fg);}
-  .chip{display:flex; align-items:center; justify-content:space-between; font-size:9px; line-height:14px; padding:0 4px; border-radius:6px; margin-top:2px; overflow:hidden;}
+  .chip{display:flex; align-items:center; justify-content:space-between; font-size:9px; line-height:14px; padding:0 4px; border-radius:6px; margin-top:2px; overflow:hidden; box-shadow:inset 0 0 0 1px rgba(0,0,0,0.06);}
   .chip span{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
   .goal-panel{background:#FAF7F0; border-radius:14px; padding:12px 14px; margin-bottom:14px;}
   .goal-row{margin-bottom:8px;}
@@ -101,7 +103,7 @@
   .todo-check{cursor:pointer; width:18px; height:18px; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
   .info-card{background:#FAF7F0; border-radius:14px; padding:12px 14px; font-size:12px; line-height:2; margin-bottom:10px;}
   .info-card .k{color:var(--faint);}
-  .plan-color-dot{width:8px; height:8px; border-radius:50%; flex-shrink:0;}
+  .plan-color-dot{width:8px; height:8px; border-radius:50%; flex-shrink:0; box-shadow:0 0 0 1px rgba(0,0,0,0.12);}
   .review-stats{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:14px;}
   .review-stat{cursor:pointer; border-radius:12px; padding:10px; text-align:center;}
   .review-stat .num{font-size:18px;}
@@ -221,6 +223,6 @@
     });
   }
 </script>
-<script src="app.js?v=14"></script>
+<script src="app.js?v=15"></script>
 </body>
 </html>
