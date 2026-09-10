@@ -313,13 +313,16 @@ function renderCalendar() {
     .sort((a, b) => prioRank(a.priority) - prioRank(b.priority));
   let todayHtml = '';
   if (todayItems.length) {
-    const rows = todayItems.map(t => {
+    const rows = todayItems.map((t, i) => {
       const c = COLORS[(t.plans && t.plans.color) || 'mint'];
       const icon = t.status === 'done'
         ? `<i class="ti ti-check" style="color:${c.fg};"></i>`
         : `<i class="ti ti-x" style="color:var(--faint);"></i>`;
-      return `<div class="row" style="margin-bottom:4px;">${icon}<span style="font-size:13px; ${t.status === 'done' ? 'text-decoration:line-through;color:var(--faint);' : ''}">${escapeHtml(t.title)}</span>
-        <span class="small-muted" style="margin-left:auto;">${escapeHtml((t.plans && t.plans.title) || '')}</span></div>`;
+      const isLast = i === todayItems.length - 1;
+      return `<div class="row" style="padding:7px 0; ${isLast ? '' : 'border-bottom:1px solid var(--pill-bg);'}">
+        ${icon}<span style="font-size:13px; ${t.status === 'done' ? 'text-decoration:line-through;color:var(--faint);' : ''}">${escapeHtml(t.title)}</span>
+        <span style="margin-left:auto; background:${c.bg}; color:${c.fg}; font-size:10px; padding:2px 8px; border-radius:6px; white-space:nowrap;">${escapeHtml((t.plans && t.plans.title) || '')}</span>
+      </div>`;
     }).join('');
     todayHtml = `<div class="info-card" style="margin-bottom:14px;">
       <div class="row" style="margin-bottom:8px;">
