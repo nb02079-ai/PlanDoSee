@@ -1,44 +1,58 @@
 {
-  "contract_version": "2.0.0",
+  "contract_version": "2.1.0",
+  "app_structure": {
+    "tabs": ["달력", "계획", "할일", "돌아보기(기간 리뷰/전체 기록)", "설정"],
+    "notes": "계획(주간/월간/1회성 목표 관리)과 할일(그날그날 실행 단위)을 별도 탭으로 분리. 돌아보기 탭 안에 '기간 리뷰'(주간·월간 체크리스트+소감, 계획별 집계+드릴다운+고칠점 인계)와 '전체 기록'(완료 스트릭·히트맵·시간순 로그)을 서브 토글로 통합."
+  },
   "timezone_policy": {
     "storage": "UTC (timestamptz)",
     "display": "Asia/Seoul",
     "week_start": "Monday (ISO week)",
-    "date_fields": "date 타입(period_start/end, due_date)은 시간대 없이 저장, 지연 판정·주간/월간 집계 시에만 KST 오늘 날짜와 비교"
+    "date_fields": "date 타입(period_start/end, due_date)은 시간대 없이 저장, 지연 판정·주간/월간 집계·히트맵 판정 시에만 KST 오늘 날짜와 비교"
   },
   "tables": {
     "plans": {
-      "columns": ["id", "title", "period_start", "period_end", "priority", "success_criteria", "estimated_hours", "cadence", "target_count", "color", "created_at", "updated_at", "carried_from_review_id"],
-      "note": "UPDATE 직전 값이 trigger(save_plan_history)로 plan_history에 저장됨. cadence='range'면 target_count 미사용, 'weekly'/'monthly'면 그 기간 동안 목표 횟수."
+      "columns": ["id", "title", "period_start", "period_end(nullable=무기한)", "priority", "success_criteria", "estimated_hours", "cadence(range|weekly|monthly)", "target_count", "color(mint|lavender|peach|butter|sky|rose)", "created_at", "updated_at", "carried_from_review_id"],
+      "note": "UPDATE 직전 값이 trigger(save_plan_history)로 plan_history에 저장됨. cadence='range'면 target_count 미사용. period_end가 null이면 무기한 계획. 삭제 시 딸린 todos/plan_history/reviews가 cascade로 함께 삭제됨(carried_from_review_id가 가리키던 review가 삭제되면 null로 set)."
     },
     "plan_history": {
       "columns": ["history_id", "plan_id", "title", "period_start", "period_end", "priority", "success_criteria", "estimated_hours", "recorded_at"]
     },
     "todos": {
-      "columns": ["id", "plan_id", "title", "status", "due_date", "priority", "tags", "estimated_hours", "created_at", "updated_at", "completed_at"],
-      "units": { "estimated_hours": "시간(hour)" }
+      "columns": ["id", "plan_id", "title", "status(in_progress|done)", "due_date", "priority", "tags", "estimated_hours", "created_at", "updated_at", "completed_at"],
+      "units": { "estimated_hours": "시간(hour)" },
+      "note": "자동 채우기(반복 할일 생성) 기능 사용 시 estimated_hours는 계획의 estimated_hours와 동일하게 채워짐(나누지 않음)."
     },
     "execution_logs": {
       "columns": ["id", "todo_id", "started_at", "ended_at", "actual_minutes", "blocker_reason", "created_at"],
-      "units": { "actual_minutes": "분(minute) — 집계 시 60으로 나눠 시간 단위로 통일" },
+      "units": { "actual_minutes": "분(minute) — 화면 표시 시 60으로 나눠 시간 단위로 통일" },
       "idempotency": "완료 처리는 todos.status='in_progress' 조건부 UPDATE로만 수행, 성공(1 row)했을 때만 execution_logs insert. unique(todo_id, ended_at) 제약으로 이중 방어."
     },
     "reviews": {
-      "columns": ["id", "plan_id", "period_start", "period_end", "improvement_note", "created_at"]
+      "columns": ["id", "plan_id", "period_start", "period_end(nullable)", "improvement_note", "created_at"],
+      "note": "돌아보기 탭에서 계획별로 '고칠 점'을 저장하면 생성되고, 다음 계획 생성 시 carried_from_review_id로 인계됨."
+    },
+    "period_reviews": {
+      "columns": ["id", "period_type(weekly|monthly)", "period_start", "period_end", "note", "created_at", "updated_at"],
+      "note": "계획에 묶이지 않는, 그 주/그 달 전체에 대한 자유 소감. 같은 기간(period_type+period_start+period_end)에 이미 저장된 값이 있으면 update, 없으면 insert."
     }
   },
   "relations": [
-    "todos.plan_id -> plans.id",
-    "execution_logs.todo_id -> todos.id",
-    "plan_history.plan_id -> plans.id",
-    "reviews.plan_id -> plans.id",
-    "plans.carried_from_review_id -> reviews.id"
+    "todos.plan_id -> plans.id (on delete cascade)",
+    "execution_logs.todo_id -> todos.id (on delete cascade)",
+    "plan_history.plan_id -> plans.id (on delete cascade)",
+    "reviews.plan_id -> plans.id (on delete cascade)",
+    "plans.carried_from_review_id -> reviews.id (on delete set null)"
   ],
   "aggregation_rules": {
-    "plan_count": "count(todos where plan_id = :id)  -- delete를 실제 삭제로 쓰므로 살아있는 행이 곧 지우지 않은 행",
+    "plan_count": "count(todos where plan_id = :id) — delete가 실제 삭제라 살아있는 행이 곧 지우지 않은 행",
     "done_count": "count(todos where plan_id = :id and status='done')",
-    "delayed_count": "count(todos where plan_id = :id and status<>'done' and due_date < (now() at time zone 'Asia/Seoul')::date)",
+    "delayed_count": "count(todos where plan_id = :id and status<>'done' and due_date < (오늘, KST))",
     "blocked_count": "count(distinct todo_id) from execution_logs where blocker_reason is not null and blocker_reason <> ''",
-    "estimated_vs_actual": "estimated = sum(todos.estimated_hours); actual = sum(execution_logs.actual_minutes)/60.0; diff = actual - estimated; 없으면 0"
-  }
+    "estimated_vs_actual": "estimated = sum(todos.estimated_hours); actual = sum(execution_logs.actual_minutes)/60.0; diff = actual - estimated; 없으면 0",
+    "cadence_progress": "해당 plan.cadence(weekly|monthly)의 이번 주(월~일)/이번 달 구간에서 completed_at이 그 구간에 속하는 done 상태 todos 수 ÷ target_count",
+    "streak": "execution_logs.ended_at 날짜를 기준으로, 오늘부터 거슬러 올라가며 하루도 빠짐없이 완료 기록이 있는 연속 일수",
+    "heatmap_day_status": "그날 due_date인 todos가 하나라도 있고 전부 status='done'이 아니면 '미완료 있음'(경고색), 아니면 그날 완료 건수에 따라 초록 계열 농도 표시"
+  },
+  "public_access_notice": "로그인 기능 없음. 링크를 아는 사람은 누구나 열람 가능. 모든 테이블 RLS는 익명 read/insert/update를 허용(단, plans/todos/reviews/period_reviews만 delete 허용, plan_history/execution_logs는 delete 정책 없음)."
 }
