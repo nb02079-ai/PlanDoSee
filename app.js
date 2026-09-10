@@ -812,7 +812,7 @@ function computeStreakAndCounts(logs) {
 
 function renderHeatmapGrid(countMap) {
   const weeks = 8;
-  const cellSize = 20;
+  const cellSize = 26;
   const today = kstNow();
   const todayMonday = startOfWeekMonday(today);
   const startMonday = new Date(todayMonday);
@@ -835,7 +835,7 @@ function renderHeatmapGrid(countMap) {
       cells += `<div title="${ds} · ${count}건" style="width:${cellSize}px; height:${cellSize}px; border-radius:4px; background:${bg};"></div>`;
     }
   }
-  return `<div style="display:grid; grid-auto-flow:column; grid-template-rows:repeat(7,${cellSize}px); gap:5px;">${cells}</div>`;
+  return `<div style="display:grid; grid-template-columns:repeat(7,${cellSize}px); gap:5px;">${cells}</div>`;
 }
 
 function renderStreakPanel(logs) {
