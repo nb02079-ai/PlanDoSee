@@ -338,19 +338,34 @@ function renderCalendar() {
   if (cadencePlans.length) {
     const weekStart = startOfWeekMonday(kstNow());
     const monthStart = new Date(kstNow().getFullYear(), kstNow().getMonth(), 1);
-    goalsHtml = '<div class="goal-panel">';
-    cadencePlans.forEach(p => {
+
+    function renderGoalRow(p) {
       const doneTodos = (state.allTodosForMonth || []).filter(t => t.plan_id === p.id && t.status === 'done' && t.completed_at);
       const rangeStart = p.cadence === 'weekly' ? weekStart : monthStart;
       const count = doneTodos.filter(t => new Date(t.completed_at) >= rangeStart).length;
       const pct = Math.min(100, Math.round((count / p.target_count) * 100));
       const c = COLORS[p.color] || COLORS.mint;
-      goalsHtml += `<div class="goal-row">
-        <div class="goal-label"><span>${escapeHtml(p.title)} <span class="small-muted">· ${p.cadence === 'weekly' ? '이번 주(월~일)' : '이번 달'}</span></span><span style="color:${c.fg}">${count} / ${p.target_count}</span></div>
+      return `<div class="goal-row">
+        <div class="goal-label"><span>${escapeHtml(p.title)}</span><span style="color:${c.fg}">${count} / ${p.target_count}</span></div>
         <div class="goal-bar-bg"><div class="goal-bar-fill" style="width:${pct}%; background:${c.fg}"></div></div>
       </div>`;
-    });
-    goalsHtml += '</div>';
+    }
+
+    const weeklyPlans = cadencePlans.filter(p => p.cadence === 'weekly');
+    const monthlyPlans = cadencePlans.filter(p => p.cadence === 'monthly');
+
+    if (weeklyPlans.length) {
+      goalsHtml += `<div class="goal-panel" style="margin-bottom:10px;">
+        <div style="font-size:13px; margin-bottom:10px;">주간 목표 <span class="small-muted">· 이번 주(월~일)</span></div>
+        ${weeklyPlans.map(renderGoalRow).join('')}
+      </div>`;
+    }
+    if (monthlyPlans.length) {
+      goalsHtml += `<div class="goal-panel" style="margin-bottom:10px;">
+        <div style="font-size:13px; margin-bottom:10px;">월간 목표 <span class="small-muted">· 이번 달</span></div>
+        ${monthlyPlans.map(renderGoalRow).join('')}
+      </div>`;
+    }
   }
 
   const dows = ['월', '화', '수', '목', '금', '토', '일'];
