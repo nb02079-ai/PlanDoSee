@@ -812,7 +812,7 @@ function computeStreakAndCounts(logs) {
 
 function renderHeatmapGrid(countMap) {
   const weeks = 8;
-  const cellSize = 26;
+  const cellHeight = 26;
   const today = kstNow();
   const todayMonday = startOfWeekMonday(today);
   const startMonday = new Date(todayMonday);
@@ -832,10 +832,10 @@ function renderHeatmapGrid(countMap) {
         else if (count === 2) bg = '#8FC79E';
         else if (count === 1) bg = 'var(--mint-bg)';
       }
-      cells += `<div title="${ds} · ${count}건" style="width:${cellSize}px; height:${cellSize}px; border-radius:4px; background:${bg};"></div>`;
+      cells += `<div title="${ds} · ${count}건" style="height:${cellHeight}px; border-radius:5px; background:${bg};"></div>`;
     }
   }
-  return `<div style="display:grid; grid-template-columns:repeat(7,${cellSize}px); gap:5px;">${cells}</div>`;
+  return `<div style="display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:5px;">${cells}</div>`;
 }
 
 function renderStreakPanel(logs) {
