@@ -8,40 +8,67 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --bg:#FFFBF5; --card:#FFFFFF; --ink:#4A4238; --muted:#8A8272; --faint:#B8AFA0;
-    --pill-bg:#F1EBDE; --pill-active:#4A4238; --pill-active-fg:#FFFBF5;
+    --bg:#FFFFFF; --card:#FFFFFF; --ink:#1A1A1A; --muted:#6B6B6B; --faint:#A3A3A3;
+    --pill-bg:#F2F2F0; --pill-active:#1A1A1A; --pill-active-fg:#FFFFFF;
     --mint-bg:#DCF0E4; --mint-fg:#3F7A5D;
     --lavender-bg:#E4DEF5; --lavender-fg:#6B5B95;
     --peach-bg:#FCE4DC; --peach-fg:#C4623A;
     --butter-bg:#FBF0C8; --butter-fg:#A98A1E;
     --sky-bg:#DCEAF7; --sky-fg:#3E6E96;
     --rose-bg:#F5DCE3; --rose-fg:#9C4F63;
-    --today-bg:#FFF3EC; --today-ring:#F3B99A;
+    --today-bg:#F5F5F5; --today-ring:#1A1A1A;
+    --side-bg:#FAFAFA; --side-border:#EBEBEB;
   }
   *{box-sizing:border-box;}
   body{
     margin:0; background:var(--bg); color:var(--ink);
     font-family:'Apple SD Gothic Neo','Malgun Gothic',-apple-system,sans-serif;
   }
-  .shell{
-    max-width:1800px; width:calc(100% - 40px); margin:20px auto; display:flex;
-    border-radius:20px; overflow:visible; box-shadow:0 2px 14px rgba(0,0,0,0.05);
+  .app-shell{
+    display:flex; height:100vh; overflow:hidden;
   }
-  .spine{
-    width:34px; background:var(--pill-bg); flex-shrink:0;
-    border-radius:20px 0 0 20px;
-    display:flex; flex-direction:column; align-items:center; justify-content:space-evenly;
-    padding:16px 0;
+  .sidebar{
+    width:240px; flex-shrink:0; background:var(--side-bg); border-right:1px solid var(--side-border);
+    padding:16px 12px; display:flex; flex-direction:column; overflow-y:auto;
   }
-  .spine .ring{
-    width:9px; height:9px; border-radius:50%;
-    background:#FFFFFF; border:1.5px solid #8A8272; box-sizing:border-box;
+  .sidebar-brand{ display:flex; align-items:baseline; gap:6px; margin-bottom:20px; padding:0 8px; }
+  .sidebar-brand .mark{ font-size:15px; font-weight:600; letter-spacing:1px; }
+  .sidebar-brand .name{ font-size:11px; color:var(--faint); }
+  .nav-item{
+    display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px;
+    cursor:pointer; font-size:13px; margin-bottom:2px; color:var(--muted); border:none; background:none;
+    font-family:inherit; width:100%; text-align:left;
   }
-  .wrap{flex:1; min-width:0; padding:20px; position:relative;}
-  .bookmark{
-    position:absolute; top:0; left:24px; width:22px; height:34px;
-    background:var(--today-ring); border-radius:0 0 4px 4px;
-    box-shadow:0 2px 4px rgba(0,0,0,0.08);
+  .nav-item.active{ background:var(--pill-bg); font-weight:600; color:var(--ink); }
+  .sidebar-section-label{
+    font-size:11px; color:var(--faint); padding:0 10px; margin:14px 0 6px; text-transform:uppercase; letter-spacing:0.5px;
+  }
+  .sidebar-plan-item{
+    display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:8px;
+    cursor:pointer; font-size:12.5px; color:var(--ink); border:none; background:none; font-family:inherit;
+    width:100%; text-align:left;
+  }
+  .sidebar-plan-item:hover{ background:var(--pill-bg); }
+  .sidebar-spacer{ flex:1; }
+  .account-row{
+    display:flex; align-items:center; gap:8px; padding:10px 8px; border-top:1px solid var(--side-border);
+    margin-top:10px; font-size:12px; color:var(--muted);
+  }
+  .avatar-circle{
+    width:24px; height:24px; border-radius:50%; background:var(--ink); flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; color:#FFFFFF; font-size:11px; overflow:hidden;
+  }
+  .avatar-circle img{ width:100%; height:100%; object-fit:cover; }
+  .main-area{ flex:1; min-width:0; display:flex; flex-direction:column; }
+  .topbar{
+    height:52px; flex-shrink:0; border-bottom:1px solid var(--side-border);
+    display:flex; align-items:center; padding:0 28px; font-size:14px;
+  }
+  .content-area{ flex:1; overflow-y:auto; padding:24px 32px; position:relative; }
+  .fab-btn{
+    position:absolute; right:28px; bottom:28px; width:52px; height:52px; border-radius:50%;
+    background:var(--ink); display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 14px rgba(0,0,0,0.25); cursor:pointer; border:none; color:#FFFFFF; font-size:24px;
   }
   .notice{
     background:var(--peach-bg); color:var(--peach-fg); border-radius:14px;
@@ -59,36 +86,20 @@
   .stat-icon{width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:6px;}
   .stat-label{font-size:11px; color:var(--muted);}
   .stat-value{font-size:16px;}
-  .page{
-    background:var(--card); border-radius:16px; padding:16px 16px 16px 20px;
-    box-shadow:0 2px 10px rgba(0,0,0,0.04); position:relative; overflow:hidden;
-    background-image:repeating-linear-gradient(var(--card) 0px, var(--card) 27px, var(--pill-bg) 28px);
-  }
-  .page::before{
-    content:''; position:absolute; top:0; right:0; z-index:1;
-    border-style:solid; border-width:0 26px 26px 0;
-    border-color:transparent var(--pill-bg) transparent transparent;
-  }
-  .page::after{
-    content:''; position:absolute; top:0; right:0; z-index:2;
-    border-style:solid; border-width:0 24px 24px 0;
-    border-color:transparent var(--bg) transparent transparent;
-    filter:drop-shadow(-1px 1px 1px rgba(0,0,0,0.06));
-  }
-  .page > *{ position:relative; z-index:3; }
+  .page{ position:relative; }
   .cal-grid{display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); grid-auto-rows:72px; gap:4px;}
   .cal-dow{font-size:11px; color:var(--faint); text-align:center; padding-bottom:2px;}
-  .cal-cell{height:72px; overflow:hidden; box-sizing:border-box; border-radius:10px; padding:4px 5px; background:#FAF7F0; cursor:pointer;}
+  .cal-cell{height:72px; overflow:hidden; box-sizing:border-box; border-radius:10px; padding:4px 5px; background:#F7F7F6; cursor:pointer;}
   .cal-cell.today{background:var(--today-bg); box-shadow:inset 0 0 0 1.5px var(--today-ring);}
   .cal-daynum{font-size:11px; color:var(--muted); line-height:14px;}
   .cal-daynum.today{color:var(--peach-fg);}
   .chip{display:flex; align-items:center; justify-content:space-between; font-size:9px; line-height:14px; padding:0 4px; border-radius:6px; margin-top:2px; overflow:hidden; box-shadow:inset 0 0 0 1px rgba(0,0,0,0.06);}
   .chip span{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
-  .goal-panel{background:#FAF7F0; border-radius:14px; padding:12px 14px; margin-bottom:14px;}
+  .goal-panel{background:#F7F7F6; border-radius:14px; padding:12px 14px; margin-bottom:14px;}
   .goal-row{margin-bottom:8px;}
   .goal-row:last-child{margin-bottom:0;}
   .goal-label{display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;}
-  .goal-bar-bg{background:#EFE6D6; border-radius:3px; height:6px; overflow:hidden;}
+  .goal-bar-bg{background:#ECECEC; border-radius:3px; height:6px; overflow:hidden;}
   .goal-bar-fill{height:100%;}
   input, select, textarea{
     font-family:inherit; font-size:12px; padding:8px 12px; border:1px solid #EDE3D2; border-radius:999px;
@@ -98,10 +109,10 @@
   textarea{border-radius:14px; width:100%; resize:vertical;}
   .btn{display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:8px 16px; border-radius:999px; cursor:pointer; border:none; font-family:inherit;}
   .btn-dark{background:var(--pill-active); color:var(--pill-active-fg);}
-  .btn-ghost{background:#FAF7F0; color:var(--muted);}
+  .btn-ghost{background:#F7F7F6; color:var(--muted);}
   .todo-row{display:flex; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid var(--pill-bg);}
   .todo-check{cursor:pointer; width:18px; height:18px; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
-  .info-card{background:#FAF7F0; border-radius:14px; padding:12px 14px; font-size:12px; line-height:2; margin-bottom:10px;}
+  .info-card{background:#F7F7F6; border-radius:14px; padding:12px 14px; font-size:12px; line-height:2; margin-bottom:10px;}
   .info-card .k{color:var(--faint);}
   .plan-color-dot{width:8px; height:8px; border-radius:50%; flex-shrink:0; box-shadow:0 0 0 1px rgba(0,0,0,0.12);}
   .review-stats{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:14px;}
@@ -159,44 +170,34 @@
   #authGate{
     position:fixed; inset:0; z-index:1000; display:flex;
     align-items:center; justify-content:center;
-    background:var(--bg); padding:32px;
+    background:#FFFFFF; padding:20px;
   }
-  .auth-shell{
-    width:100%; height:100%; max-width:1700px; max-height:960px;
-    display:flex; border-radius:24px; overflow:hidden;
-    box-shadow:0 16px 48px rgba(0,0,0,0.16);
+  .auth-card{
+    width:100%; max-width:360px; border:1px solid #ECECEC; border-radius:14px;
+    overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,0.06);
   }
-  .auth-spine{
-    width:44px; background:var(--pill-bg); flex-shrink:0;
-    display:flex; flex-direction:column; align-items:center; justify-content:space-evenly;
-    padding:20px 0;
+  .auth-brand{ background:#F2F2F0; padding:36px 20px 30px; text-align:center; }
+  .auth-brand .title{
+    font-size:26px; letter-spacing:3px; font-weight:600; color:#3A3A38;
+    text-shadow:0 1px 0 rgba(255,255,255,0.9), 0 -1px 1px rgba(0,0,0,0.08);
   }
-  .auth-spine .ring{
-    width:11px; height:11px; border-radius:50%;
-    background:#FFFFFF; border:1.5px solid #8A8272; box-sizing:border-box;
-  }
-  .auth-stage{
-    flex:1; min-width:0; background:linear-gradient(160deg, #2E2B27, #201D1A);
-    display:flex; align-items:center; justify-content:center;
-  }
-  .auth-card{ width:100%; max-width:340px; padding:0 24px; }
-  .auth-brand{ text-align:center; margin-bottom:36px; }
-  .auth-brand .title{ font-size:30px; letter-spacing:5px; color:#D9CBA8; text-shadow:0 1px 0 rgba(0,0,0,0.5); }
-  .auth-brand .subtitle{ font-size:11px; letter-spacing:3px; color:#C9BB98; margin-top:8px; }
-  .auth-field-label{ font-size:12px; color:#B8A97F; letter-spacing:1px; margin-bottom:8px; }
+  .auth-body{ padding:28px 26px 26px; }
+  .auth-field-label{ font-size:12px; color:#8A8A87; margin-bottom:6px; }
   .auth-input{
-    width:100%; box-sizing:border-box; padding:12px 16px; border-radius:999px;
-    border:none; background:#FFFFFF; font-size:14px; margin-bottom:20px; display:block;
+    width:100%; box-sizing:border-box; padding:10px 4px; border:none;
+    border-bottom:1.5px solid #E2E2E0; background:transparent; font-size:14px;
+    margin-bottom:20px; display:block; outline:none; font-family:inherit;
   }
-  .auth-error{ color:#E8A796; font-size:12px; margin-bottom:14px; display:none; }
+  .auth-input:focus{ border-bottom-color:#1A1A1A; }
+  .auth-error{ color:#C4623A; font-size:12px; margin-bottom:14px; display:none; }
   .auth-actions{ display:flex; gap:10px; }
   .auth-btn-primary{
-    flex:1; padding:11px 0; border-radius:999px; border:none;
-    background:#D9CBA8; color:#2E2B27; font-size:14px; cursor:pointer; font-family:inherit;
+    flex:1; padding:11px 0; border-radius:8px; border:none;
+    background:#1A1A1A; color:#FFFFFF; font-size:14px; cursor:pointer; font-family:inherit;
   }
   .auth-btn-secondary{
-    flex:1; padding:11px 0; border-radius:999px; border:1px solid #7A7568;
-    background:transparent; color:#D9CBA8; font-size:14px; cursor:pointer; font-family:inherit;
+    flex:1; padding:11px 0; border-radius:8px; border:1px solid #DDDDDA;
+    background:transparent; color:#1A1A1A; font-size:14px; cursor:pointer; font-family:inherit;
   }
   .auth-btn-primary:disabled, .auth-btn-secondary:disabled{ opacity:0.5; cursor:default; }
 </style>
@@ -205,69 +206,60 @@
 <body>
 <div id="pdsLoadingBar"><div class="bar"></div></div>
 
-<div class="shell">
-  <div class="spine">
-    <span class="ring"></span>
-    <span class="ring"></span>
-    <span class="ring"></span>
-    <span class="ring"></span>
-    <span class="ring"></span>
-  </div>
-
-  <div class="wrap">
-    <div class="bookmark"></div>
-
-    <div id="appInner" class="hidden">
-      <div id="accountBar" class="row" style="margin-bottom:14px;">
-        <span id="accountEmail" class="small-muted grow"></span>
-        <button class="btn btn-ghost" onclick="doLogout()">로그아웃</button>
-      </div>
-
-      <div id="setupWarning" class="setup-warning hidden">
-        Supabase 연결이 안 되어 있어요. 이 파일 맨 아래 <code>SUPABASE_URL</code> / <code>SUPABASE_ANON_KEY</code>를 채워 넣어주세요.
-      </div>
-
-      <div class="tabs">
-        <button class="tab" id="tab-calendar" onclick="switchTab('calendar')">달력</button>
-        <button class="tab" id="tab-plans" onclick="switchTab('plans')">계획</button>
-        <button class="tab" id="tab-todos" onclick="switchTab('todos')">할일</button>
-        <button class="tab" id="tab-review" onclick="switchTab('review')">돌아보기</button>
-        <button class="tab" id="tab-settings" onclick="switchTab('settings')">설정</button>
-      </div>
-
-      <div class="page page-fade" id="page">불러오는 중...</div>
+<div id="appShell" class="app-shell hidden">
+  <div class="sidebar">
+    <div class="sidebar-brand">
+      <span class="mark">P·D·S</span>
+      <span class="name">플랜두씨 다이어리</span>
     </div>
 
-    <div id="authGate">
-      <div class="auth-shell">
-        <div class="auth-spine">
-          <span class="ring"></span>
-          <span class="ring"></span>
-          <span class="ring"></span>
-          <span class="ring"></span>
-          <span class="ring"></span>
-        </div>
-        <div class="auth-stage">
-          <div class="auth-card">
-            <div class="auth-brand">
-              <div class="title">P·D·S</div>
-              <div class="subtitle">PLAN · DO · SEE</div>
-            </div>
+    <button class="nav-item" id="nav-calendar" onclick="switchTab('calendar')"><i class="ti ti-calendar"></i> 달력</button>
+    <button class="nav-item" id="nav-plans" onclick="switchTab('plans')"><i class="ti ti-target-arrow"></i> 계획</button>
+    <button class="nav-item" id="nav-todos" onclick="switchTab('todos')"><i class="ti ti-checklist"></i> 할일</button>
+    <button class="nav-item" id="nav-review" onclick="switchTab('review')"><i class="ti ti-chart-bar"></i> 돌아보기</button>
 
-            <div class="auth-field-label">ID</div>
-            <input id="auth-email" class="auth-input" type="email" autocomplete="username">
+    <div class="sidebar-section-label">내 계획</div>
+    <div id="sidebarPlanList"></div>
 
-            <div class="auth-field-label">PW</div>
-            <input id="auth-password" class="auth-input" type="password" autocomplete="current-password">
+    <div class="sidebar-spacer"></div>
 
-            <div id="authError" class="auth-error"></div>
+    <div id="setupWarning" class="setup-warning hidden">
+      Supabase 연결이 안 되어 있어요. 이 파일 맨 아래 <code>SUPABASE_URL</code> / <code>SUPABASE_ANON_KEY</code>를 채워 넣어주세요.
+    </div>
 
-            <div class="auth-actions">
-              <button class="auth-btn-primary" id="authLoginBtn" onclick="submitAuth('login', this)">로그인</button>
-              <button class="auth-btn-secondary" id="authSignupBtn" onclick="submitAuth('signup', this)">회원가입</button>
-            </div>
-          </div>
-        </div>
+    <div class="account-row">
+      <div class="avatar-circle" id="accountAvatar"></div>
+      <span id="accountNickname" class="grow" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+      <i class="ti ti-settings" style="cursor:pointer; flex-shrink:0;" onclick="switchTab('settings')"></i>
+    </div>
+  </div>
+
+  <div class="main-area">
+    <div class="topbar" id="topbarTitle">달력</div>
+    <div class="content-area">
+      <div class="page page-fade" id="page">불러오는 중...</div>
+      <button class="fab-btn hidden" id="fabBtn" onclick="handleFabClick()" aria-label="추가"><i class="ti ti-plus"></i></button>
+    </div>
+  </div>
+</div>
+
+<div id="authGate">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="title">PLAN · DO · SEE</div>
+    </div>
+    <div class="auth-body">
+      <div class="auth-field-label">ID</div>
+      <input id="auth-email" class="auth-input" type="email" autocomplete="username">
+
+      <div class="auth-field-label">PW</div>
+      <input id="auth-password" class="auth-input" type="password" autocomplete="current-password">
+
+      <div id="authError" class="auth-error"></div>
+
+      <div class="auth-actions">
+        <button class="auth-btn-primary" id="authLoginBtn" onclick="submitAuth('login', this)">로그인</button>
+        <button class="auth-btn-secondary" id="authSignupBtn" onclick="submitAuth('signup', this)">회원가입</button>
       </div>
     </div>
   </div>

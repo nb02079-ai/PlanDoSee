@@ -31,6 +31,7 @@ let state = {
   selectedDay: null,       // 'YYYY-MM-DD' or null
   plans: [],
   currentPlanId: null,
+  profile: null, // { nickname, avatar_url }
   todos: [],               // 현재 선택된 계획의 할일
   allTodosForMonth: [],    // 달력용: 전체 계획의 할일(플랜 join)
   historyOpenPlanId: null, // 지금 이력을 펼쳐놓은 계획 id
@@ -115,14 +116,13 @@ async function doLogout() {
 
 function updateAuthUI() {
   const gate = document.getElementById('authGate');
-  const inner = document.getElementById('appInner');
+  const shell = document.getElementById('appShell');
   if (currentUser) {
     gate.classList.add('hidden');
-    inner.classList.remove('hidden');
-    document.getElementById('accountEmail').textContent = currentUser.email;
+    shell.classList.remove('hidden');
   } else {
     gate.classList.remove('hidden');
-    inner.classList.add('hidden');
+    shell.classList.add('hidden');
   }
 }
 
@@ -198,6 +198,81 @@ async function loadPlans() {
   if (error) { console.error(error); return; }
   state.plans = data || [];
   if (!state.currentPlanId && state.plans.length) state.currentPlanId = state.plans[0].id;
+  renderSidebarPlanList();
+}
+
+function renderSidebarPlanList() {
+  const el = document.getElementById('sidebarPlanList');
+  if (!el) return;
+  el.innerHTML = state.plans.map(p => {
+    const c = COLORS[p.color] || COLORS.mint;
+    return `<button class="sidebar-plan-item" onclick="goToTodosForPlan('${p.id}')">
+      <span style="width:7px; height:7px; border-radius:50%; background:${c.fg}; flex-shrink:0;"></span>
+      <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(p.title)}</span>
+    </button>`;
+  }).join('');
+}
+
+// ---------- 프로필 (닉네임/아바타) ----------
+async function loadProfile() {
+  if (!currentUser) return;
+  const { data, error } = await sb.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
+  if (error) { console.error(error); return; }
+  if (data) {
+    state.profile = data;
+  } else {
+    const defaultNickname = currentUser.email.split('@')[0];
+    const { data: created, error: insError } = await sb.from('profiles')
+      .insert({ id: currentUser.id, nickname: defaultNickname }).select().single();
+    if (insError) { console.error(insError); state.profile = { nickname: defaultNickname, avatar_url: null }; }
+    else state.profile = created;
+  }
+  renderSidebarAccount();
+}
+
+function renderSidebarAccount() {
+  const nickEl = document.getElementById('accountNickname');
+  const avatarEl = document.getElementById('accountAvatar');
+  if (!nickEl || !avatarEl) return;
+  const nickname = (state.profile && state.profile.nickname) || (currentUser ? currentUser.email : '');
+  nickEl.textContent = nickname;
+  const avatarUrl = state.profile && state.profile.avatar_url;
+  avatarEl.innerHTML = avatarUrl
+    ? `<img src="${avatarUrl}" alt="">`
+    : escapeHtml(nickname.slice(0, 1).toUpperCase());
+}
+
+async function saveNickname(btn) {
+  const nickname = document.getElementById('profile-nickname').value.trim();
+  if (!nickname) { pdsAlert('닉네임을 입력하세요.'); return; }
+  if (btn) { if (btn.disabled) return; btn.disabled = true; }
+  pdsLoadingStart();
+  const { error } = await sb.from('profiles').update({ nickname, updated_at: new Date().toISOString() }).eq('id', currentUser.id);
+  pdsLoadingEnd();
+  if (btn) btn.disabled = false;
+  if (error) { pdsAlert('닉네임 저장 실패: ' + error.message); return; }
+  state.profile = state.profile || {};
+  state.profile.nickname = nickname;
+  renderSidebarAccount();
+  pdsAlert('닉네임을 저장했어요.');
+}
+
+async function uploadAvatar(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  pdsLoadingStart();
+  const path = `${currentUser.id}/avatar.${file.name.split('.').pop()}`;
+  const { error: upError } = await sb.storage.from('avatars').upload(path, file, { upsert: true });
+  if (upError) { pdsLoadingEnd(); pdsAlert('이미지 업로드 실패: ' + upError.message); return; }
+  const { data: urlData } = sb.storage.from('avatars').getPublicUrl(path);
+  const avatar_url = urlData.publicUrl + '?t=' + Date.now(); // 캐시 무효화
+  const { error: updError } = await sb.from('profiles').update({ avatar_url, updated_at: new Date().toISOString() }).eq('id', currentUser.id);
+  pdsLoadingEnd();
+  if (updError) { pdsAlert('프로필 갱신 실패: ' + updError.message); return; }
+  state.profile = state.profile || {};
+  state.profile.avatar_url = avatar_url;
+  renderSidebarAccount();
+  if (state.tab === 'settings') render();
 }
 
 async function loadTodosForCurrentPlan() {
@@ -284,10 +359,15 @@ async function createReview(payload) {
 }
 
 // ---------- 탭 전환 ----------
+const TAB_LABELS = { calendar: '달력', plans: '계획', todos: '할일', review: '돌아보기', settings: '설정' };
+
 async function switchTab(tab) {
   state.tab = tab;
-  document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
-  document.getElementById('tab-' + tab).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const navEl = document.getElementById('nav-' + tab);
+  if (navEl) navEl.classList.add('active');
+  const topbar = document.getElementById('topbarTitle');
+  if (topbar) topbar.textContent = TAB_LABELS[tab] || '';
   await refreshAndRender();
 }
 
@@ -353,6 +433,23 @@ function render() {
       }
     }
   }
+
+  updateFabButton();
+}
+
+function updateFabButton() {
+  const fab = document.getElementById('fabBtn');
+  if (!fab) return;
+  if (state.tab === 'plans' || state.tab === 'todos') {
+    fab.classList.remove('hidden');
+  } else {
+    fab.classList.add('hidden');
+  }
+}
+
+function handleFabClick() {
+  if (state.tab === 'plans') togglePlanForm(true);
+  if (state.tab === 'todos') toggleTodoForm(true);
 }
 
 // ---------- 달력 ----------
@@ -594,9 +691,6 @@ function renderPlans() {
   }
 
   return `
-    <button class="btn btn-dark" style="width:100%; justify-content:center; margin-bottom:16px;" onclick="togglePlanForm(true)">
-      <i class="ti ti-plus"></i> 새 계획 만들기
-    </button>
     ${formHtml}
     ${emptyMsg}
     ${noActiveMsg}
@@ -1095,7 +1189,6 @@ function renderTodos() {
           <option value="in_progress">진행중</option>
           <option value="done">완료</option>
         </select>
-        <button class="btn btn-ghost" aria-label="할 일 추가" onclick="toggleTodoForm(true)"><i class="ti ti-plus"></i></button>
       </div>
       <div class="small-muted" style="margin-bottom:10px;">정렬 기준: 마감일 → 우선순위 → 등록순</div>
       ${state.showTodoForm ? renderTodoForm() : ''}
@@ -1379,14 +1472,39 @@ async function submitReview() {
 
 // ---------- 설정 ----------
 function renderSettings() {
+  const nickname = (state.profile && state.profile.nickname) || '';
+  const avatarUrl = state.profile && state.profile.avatar_url;
   return `
     <div style="font-size:15px; margin-bottom:12px;">설정</div>
     <div class="info-card" style="margin-bottom:14px;">
       <div><span class="k">로그인 계정</span> &nbsp; ${escapeHtml(currentUser ? currentUser.email : '')}</div>
     </div>
+
+    <div class="info-card" style="margin-bottom:16px;">
+      <div class="row" style="margin-bottom:14px;">
+        <div class="avatar-circle" style="width:48px; height:48px; font-size:18px;">
+          ${avatarUrl ? `<img src="${avatarUrl}" alt="">` : escapeHtml((nickname || (currentUser ? currentUser.email : '?')).slice(0, 1).toUpperCase())}
+        </div>
+        <label class="btn btn-ghost" style="cursor:pointer;">
+          이미지 바꾸기
+          <input type="file" accept="image/*" style="display:none;" onchange="uploadAvatar(this)">
+        </label>
+      </div>
+      <div class="field-group">
+        <label>닉네임</label>
+        <input id="profile-nickname" value="${escapeAttr(nickname)}">
+      </div>
+      <button class="btn btn-dark" onclick="saveNickname(this)">닉네임 저장</button>
+    </div>
+
     <div style="margin-bottom:16px;">
       <button class="btn btn-dark" onclick="exportAllData()"><i class="ti ti-download"></i> 내 자료 내보내기</button>
     </div>
+
+    <div style="margin-bottom:16px;">
+      <button class="btn btn-ghost" onclick="doLogout()"><i class="ti ti-logout"></i> 로그아웃</button>
+    </div>
+
     <div style="border-top:1px solid var(--pill-bg); padding-top:14px;">
       <div class="small-muted" style="margin-bottom:8px;">계정을 지우면 계획·할일·실행기록 등 내 자료가 전부 삭제됩니다(되돌릴 수 없음). 로그인 정보(이메일/비밀번호) 자체는 별도 요청 없이는 남아있어요 — 이건 관리자 권한이 필요한 작업이라 이 화면에서는 처리하지 않습니다.</div>
       <button class="icon-btn danger" style="width:auto; padding:8px 16px; gap:6px;" onclick="confirmDeleteAccountData()"><i class="ti ti-trash"></i> 내 자료 전체 삭제</button>
@@ -1446,7 +1564,7 @@ function escapeAttr(s) { return escapeHtml(s); }
 
 // ---------- 시작 ----------
 (async function boot() {
-  document.getElementById('tab-calendar').classList.add('active');
+  document.getElementById('nav-calendar').classList.add('active');
   const ok = initSupabase();
   if (!ok) {
     document.getElementById('page').innerHTML = '<div class="small-muted">Supabase 설정 후 새로고침 해주세요.</div>';
@@ -1459,6 +1577,7 @@ function escapeAttr(s) { return escapeHtml(s); }
     updateAuthUI();
     if (currentUser && !wasLoggedIn) {
       // 방금 로그인/가입 확인됨 → 내 데이터 불러오기 시작
+      await loadProfile();
       await loadPlans();
       await refreshAndRender();
     }
@@ -1469,6 +1588,7 @@ function escapeAttr(s) { return escapeHtml(s); }
       state.allTodosForMonth = [];
       state.allLogs = [];
       state.currentPlanId = null;
+      state.profile = null;
     }
   });
 
@@ -1476,6 +1596,7 @@ function escapeAttr(s) { return escapeHtml(s); }
   currentUser = session ? session.user : null;
   updateAuthUI();
   if (currentUser) {
+    await loadProfile();
     await loadPlans();
     await refreshAndRender();
   }
