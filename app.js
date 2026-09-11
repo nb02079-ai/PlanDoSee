@@ -290,7 +290,7 @@ async function loadAllTodosForMonth() {
 
 async function loadAllLogs() {
   const { data, error } = await sb.from('execution_logs')
-    .select('*, todos(title, plan_id, plans(title,color))')
+    .select('*, todos(title, plan_id, due_date, plans(title,color))')
     .order('ended_at', { ascending: false });
   if (error) { console.error(error); state.allLogs = []; return; }
   state.allLogs = data || [];
@@ -974,10 +974,17 @@ function renderHistoryFor(planId) {
 }
 
 // ---------- 완료 스트릭 / 히트맵 ----------
+// 완료를 실제로 "체크한" 날짜가 아니라, 그 할 일이 원래 완료돼야 했던 날(마감일) 기준으로 집계.
+// 마감일이 없는 할 일은 체크한 날짜로 대체.
+function logCountedDate(l) {
+  const dueDate = l.todos && l.todos.due_date;
+  return dueDate || toDateStr(new Date(l.ended_at));
+}
+
 function computeStreakAndCounts(logs) {
   const countMap = {};
   logs.forEach(l => {
-    const d = toDateStr(new Date(l.ended_at));
+    const d = logCountedDate(l);
     countMap[d] = (countMap[d] || 0) + 1;
   });
   let streak = 0;
@@ -1067,7 +1074,7 @@ function renderLogs() {
 
   const groups = {};
   logs.forEach(l => {
-    const dateKey = toDateStr(new Date(l.ended_at));
+    const dateKey = logCountedDate(l);
     (groups[dateKey] = groups[dateKey] || []).push(l);
   });
   const orderedDates = Object.keys(groups).sort((a, b) => a < b ? 1 : -1);
