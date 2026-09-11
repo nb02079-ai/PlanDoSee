@@ -736,10 +736,8 @@ function renderPlanCard(plan) {
         <i class="ti ti-chevron-${histOpen ? 'up' : 'down'}"></i> 수정 이력 보기
       </div>
       ${histOpen ? renderHistoryFor(plan.id) : ''}
-      ${plan.cadence !== 'range' ? `<div style="margin-bottom:4px;">
-        <span class="btn btn-ghost" onclick="openAutoFillModal('${plan.id}')" style="font-size:12px;"><i class="ti ti-repeat"></i> ${plan.cadence === 'weekly' ? '이번 주' : '이번 달'} 할 일 자동 채우기</span>
-      </div>` : ''}
-      <div style="margin-bottom:4px;">
+      <div class="row" style="margin-bottom:4px; flex-wrap:wrap;">
+        ${plan.cadence !== 'range' ? `<span class="btn btn-ghost" onclick="openAutoFillModal('${plan.id}')" style="font-size:12px;"><i class="ti ti-repeat"></i> ${plan.cadence === 'weekly' ? '이번 주' : '이번 달'} 할 일 자동 채우기</span>` : ''}
         <span class="btn btn-ghost" onclick="goToTodosForPlan('${plan.id}')" style="font-size:12px;">이 계획의 할 일 보러가기 →</span>
       </div>
     </div>`;
