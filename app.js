@@ -539,17 +539,14 @@ function renderCalendar() {
   for (let day = 1; day <= total; day++) {
     const dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
     const items = (byDay[dateStr] || []).slice().sort((a, b) => prioRank(a.priority) - prioRank(b.priority));
-    const shown = items.slice(0, 2);
-    const extra = items.length - shown.length;
     let chips = '';
-    shown.forEach(t => {
+    items.forEach(t => {
       const c = COLORS[(t.plans && t.plans.color) || 'mint'];
       const icon = t.status === 'done'
-        ? `<i class="ti ti-check" style="font-size:11px;color:${c.fg}"></i>`
-        : `<i class="ti ti-x" style="font-size:11px;color:var(--faint)"></i>`;
+        ? `<i class="ti ti-check" style="font-size:13px;color:${c.fg}"></i>`
+        : `<i class="ti ti-x" style="font-size:13px;color:var(--faint)"></i>`;
       chips += `<div class="chip" style="background:${c.bg};color:${c.fg}"><span>${escapeHtml(t.title)}</span>${icon}</div>`;
     });
-    if (extra > 0) chips += `<div class="small-muted" style="margin-top:1px;">+${extra}</div>`;
     const isToday = dateStr === todayStr;
     grid += `<div class="cal-cell ${isToday ? 'today' : ''}" onclick="pickDay('${dateStr}')">
       <div class="cal-daynum ${isToday ? 'today' : ''}">${day}</div>${chips}</div>`;

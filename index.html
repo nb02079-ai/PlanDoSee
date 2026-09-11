@@ -87,13 +87,13 @@
   .stat-label{font-size:11px; color:var(--muted);}
   .stat-value{font-size:16px;}
   .page{ position:relative; }
-  .cal-grid{display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); grid-auto-rows:130px; gap:4px;}
+  .cal-grid{display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); grid-auto-rows:minmax(130px, auto); gap:4px;}
   .cal-dow{font-size:11px; color:var(--faint); text-align:center; padding-bottom:2px;}
-  .cal-cell{height:130px; overflow:hidden; box-sizing:border-box; border-radius:10px; padding:4px 5px; background:#F7F7F6; cursor:pointer;}
+  .cal-cell{min-height:130px; overflow:visible; box-sizing:border-box; border-radius:10px; padding:4px 5px; background:#F7F7F6; cursor:pointer;}
   .cal-cell.today{background:var(--today-bg); box-shadow:inset 0 0 0 1.5px var(--today-ring);}
-  .cal-daynum{font-size:11px; color:var(--muted); line-height:14px;}
+  .cal-daynum{font-size:13px; color:var(--muted); line-height:16px;}
   .cal-daynum.today{color:var(--peach-fg);}
-  .chip{display:flex; align-items:center; justify-content:space-between; font-size:11px; line-height:18px; padding:0 5px; border-radius:6px; margin-top:3px; overflow:hidden; box-shadow:inset 0 0 0 1px rgba(0,0,0,0.06);}
+  .chip{display:flex; align-items:center; justify-content:space-between; font-size:15px; line-height:22px; padding:1px 6px; border-radius:6px; margin-top:3px; overflow:hidden; box-shadow:inset 0 0 0 1px rgba(0,0,0,0.06);}
   .chip span{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
   .goal-panel{background:#F7F7F6; border-radius:14px; padding:12px 14px; margin-bottom:14px;}
   .goal-row{margin-bottom:8px;}
@@ -275,6 +275,6 @@
   const SUPABASE_ANON_KEY = "sb_publishable_szvYK65O-J59c-IKit03sg_JZyXIbe3";
   // ===============================
 </script>
-<script src="app.js?v=46"></script>
+<script src="app.js?v=47"></script>
 </body>
 </html>
