@@ -318,7 +318,8 @@ async function createTodo(payload) {
   return true;
 }
 async function updateTodo(id, payload) {
-  const { error } = await sb.from('todos').update(payload).eq('id', id);
+  const finalPayload = { ...payload, updated_at: new Date().toISOString() };
+  const { error } = await sb.from('todos').update(finalPayload).eq('id', id);
   if (error) { pdsAlert('할 일 수정 실패: ' + error.message); return false; }
   return true;
 }
