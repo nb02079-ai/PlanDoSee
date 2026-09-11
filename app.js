@@ -480,11 +480,11 @@ function renderCalendar() {
         ? `<i class="ti ti-check" style="color:${c.fg};"></i>`
         : `<i class="ti ti-circle" style="color:var(--faint); cursor:pointer;" onclick="toggleComplete('${t.id}')"></i>`;
       const isLast = i === todayItems.length - 1;
-      return `<div class="row" style="align-items:flex-start; padding:7px 0; ${isLast ? '' : 'border-bottom:2px solid var(--faint);'}">
-        ${icon}
-        <div class="grow">
-          <div style="margin-bottom:3px;"><span style="background:${c.bg}; color:${c.fg}; font-size:10px; padding:2px 8px; border-radius:6px; white-space:nowrap;">${escapeHtml((t.plans && t.plans.title) || '')}</span></div>
-          <div style="font-size:13px; line-height:1.4; ${t.status === 'done' ? 'text-decoration:line-through;color:var(--faint);' : ''}">${escapeHtml(t.title)}</div>
+      return `<div style="padding:7px 0; ${isLast ? '' : 'border-bottom:2px solid var(--faint);'}">
+        <div style="margin-bottom:4px;"><span style="background:${c.bg}; color:${c.fg}; font-size:10px; padding:2px 8px; border-radius:6px; white-space:nowrap;">${escapeHtml((t.plans && t.plans.title) || '')}</span></div>
+        <div class="row" style="align-items:center;">
+          ${icon}
+          <span style="font-size:13px; line-height:1.4; ${t.status === 'done' ? 'text-decoration:line-through;color:var(--faint);' : ''}">${escapeHtml(t.title)}</span>
         </div>
       </div>`;
     }).join('');
