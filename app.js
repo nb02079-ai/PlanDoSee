@@ -480,9 +480,12 @@ function renderCalendar() {
         ? `<i class="ti ti-check" style="color:${c.fg};"></i>`
         : `<i class="ti ti-circle" style="color:var(--faint); cursor:pointer;" onclick="toggleComplete('${t.id}')"></i>`;
       const isLast = i === todayItems.length - 1;
-      return `<div class="row" style="padding:7px 0; ${isLast ? '' : 'border-bottom:2px solid var(--faint);'}">
-        ${icon}<span style="font-size:13px; ${t.status === 'done' ? 'text-decoration:line-through;color:var(--faint);' : ''}">${escapeHtml(t.title)}</span>
-        <span style="margin-left:auto; background:${c.bg}; color:${c.fg}; font-size:10px; padding:2px 8px; border-radius:6px; white-space:nowrap;">${escapeHtml((t.plans && t.plans.title) || '')}</span>
+      return `<div class="row" style="align-items:flex-start; padding:7px 0; ${isLast ? '' : 'border-bottom:2px solid var(--faint);'}">
+        ${icon}
+        <div class="grow">
+          <div style="margin-bottom:3px;"><span style="background:${c.bg}; color:${c.fg}; font-size:10px; padding:2px 8px; border-radius:6px; white-space:nowrap;">${escapeHtml((t.plans && t.plans.title) || '')}</span></div>
+          <div style="font-size:13px; line-height:1.4; ${t.status === 'done' ? 'text-decoration:line-through;color:var(--faint);' : ''}">${escapeHtml(t.title)}</div>
+        </div>
       </div>`;
     }).join('');
     todayHtml = `<div class="info-card" style="margin-bottom:14px;">
@@ -554,12 +557,17 @@ function renderCalendar() {
   grid += `</div>`;
 
   const monthLabel = `${year}년 ${month + 1}월`;
-  return `${todayHtml}<div class="row" style="justify-content:space-between; margin-bottom:10px;">
+  const topRowHtml = (todayHtml || goalsHtml)
+    ? `<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:14px; align-items:start;">
+        <div>${todayHtml}</div>
+        <div>${goalsHtml}</div>
+      </div>`
+    : '';
+  return `${topRowHtml}<div class="row" style="justify-content:space-between; margin-bottom:10px;">
       <button class="btn btn-ghost" aria-label="이전 달" onclick="shiftMonth(-1)"><i class="ti ti-chevron-left"></i></button>
       <div style="font-size:14px;">${monthLabel}</div>
       <button class="btn btn-ghost" aria-label="다음 달" onclick="shiftMonth(1)"><i class="ti ti-chevron-right"></i></button>
     </div>
-    ${goalsHtml}
     ${grid}`;
 }
 
