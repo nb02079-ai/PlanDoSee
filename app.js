@@ -64,16 +64,6 @@ function initSupabase() {
 
 // ---------- 인증 (Supabase Auth) ----------
 let currentUser = null;
-let authMode = 'login'; // 'login' | 'signup'
-
-function setAuthMode(mode) {
-  authMode = mode;
-  document.getElementById('auth-tab-login').classList.toggle('active', mode === 'login');
-  document.getElementById('auth-tab-signup').classList.toggle('active', mode === 'signup');
-  document.getElementById('authSubmitBtn').textContent = mode === 'login' ? '로그인' : '가입';
-  document.getElementById('auth-password').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
-  hideAuthError();
-}
 
 function showAuthError(message) {
   const el = document.getElementById('authError');
@@ -85,22 +75,26 @@ function hideAuthError() {
   el.style.display = 'none';
 }
 
-async function submitAuth(btn) {
+function setAuthButtonsDisabled(disabled) {
+  document.getElementById('authLoginBtn').disabled = disabled;
+  document.getElementById('authSignupBtn').disabled = disabled;
+}
+
+async function submitAuth(mode, btn) {
   if (btn.disabled) return;
   hideAuthError();
   const email = document.getElementById('auth-email').value.trim();
   const password = document.getElementById('auth-password').value;
-  if (!email || !password) { showAuthError('이메일과 비밀번호를 입력하세요.'); return; }
+  if (!email || !password) { showAuthError('ID와 PW를 입력하세요.'); return; }
 
-  btn.disabled = true;
+  setAuthButtonsDisabled(true);
   pdsLoadingStart();
   try {
-    if (authMode === 'signup') {
+    if (mode === 'signup') {
       const { data, error } = await sb.auth.signUp({ email, password });
       if (error) { showAuthError(error.message); return; }
       if (data.user && !data.session) {
         showAuthError('가입 확인 메일을 보냈어요. 메일함을 확인한 뒤 로그인해주세요.');
-        setAuthMode('login');
       }
       // data.session이 바로 있으면(이메일 확인 없이 가입 즉시 로그인 설정된 프로젝트) onAuthStateChange가 알아서 처리
     } else {
@@ -108,7 +102,7 @@ async function submitAuth(btn) {
       if (error) { showAuthError(error.message); return; }
     }
   } finally {
-    btn.disabled = false;
+    setAuthButtonsDisabled(false);
     pdsLoadingEnd();
   }
 }

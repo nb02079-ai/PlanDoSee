@@ -24,7 +24,7 @@
     font-family:'Apple SD Gothic Neo','Malgun Gothic',-apple-system,sans-serif;
   }
   .shell{
-    max-width:640px; margin:20px auto; display:flex;
+    max-width:1800px; width:calc(100% - 40px); margin:20px auto; display:flex;
     border-radius:20px; overflow:visible; box-shadow:0 2px 14px rgba(0,0,0,0.05);
   }
   .spine{
@@ -157,17 +157,42 @@
 
   #appInner{ position:relative; }
   #authGate{
-    display:flex; align-items:center; justify-content:center; padding:20px 0;
+    position:fixed; inset:0; z-index:1000; display:flex;
+    background:var(--pill-bg);
   }
-  .auth-card{ width:100%; max-width:380px; border-radius:16px; overflow:hidden; box-shadow:0 4px 18px rgba(0,0,0,0.08); }
-  .auth-brand{
-    text-align:center; padding:26px 20px 18px;
-    background:linear-gradient(160deg, #2E2B27, #201D1A);
+  .auth-spine{
+    width:44px; background:var(--pill-bg); flex-shrink:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:space-evenly;
+    padding:20px 0;
   }
-  .auth-brand .title{ font-size:26px; letter-spacing:4px; color:#D9CBA8; text-shadow:0 1px 0 rgba(0,0,0,0.5); }
-  .auth-brand .subtitle{ font-size:10px; letter-spacing:3px; color:#C9BB98; margin-top:6px; }
-  .auth-body{ background:var(--card); padding:22px; }
-  .auth-error{ color:var(--rose-fg); font-size:12px; margin-bottom:10px; display:none; }
+  .auth-spine .ring{
+    width:11px; height:11px; border-radius:50%;
+    background:#FFFFFF; box-shadow:inset 0 0 0 1.5px #E3DACB;
+  }
+  .auth-stage{
+    flex:1; min-width:0; background:linear-gradient(160deg, #2E2B27, #201D1A);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .auth-card{ width:100%; max-width:340px; padding:0 24px; }
+  .auth-brand{ text-align:center; margin-bottom:36px; }
+  .auth-brand .title{ font-size:30px; letter-spacing:5px; color:#D9CBA8; text-shadow:0 1px 0 rgba(0,0,0,0.5); }
+  .auth-brand .subtitle{ font-size:11px; letter-spacing:3px; color:#C9BB98; margin-top:8px; }
+  .auth-field-label{ font-size:12px; color:#B8A97F; letter-spacing:1px; margin-bottom:8px; }
+  .auth-input{
+    width:100%; box-sizing:border-box; padding:12px 16px; border-radius:999px;
+    border:none; background:#FFFFFF; font-size:14px; margin-bottom:20px; display:block;
+  }
+  .auth-error{ color:#E8A796; font-size:12px; margin-bottom:14px; display:none; }
+  .auth-actions{ display:flex; gap:10px; }
+  .auth-btn-primary{
+    flex:1; padding:11px 0; border-radius:999px; border:none;
+    background:#D9CBA8; color:#2E2B27; font-size:14px; cursor:pointer; font-family:inherit;
+  }
+  .auth-btn-secondary{
+    flex:1; padding:11px 0; border-radius:999px; border:1px solid #7A7568;
+    background:transparent; color:#D9CBA8; font-size:14px; cursor:pointer; font-family:inherit;
+  }
+  .auth-btn-primary:disabled, .auth-btn-secondary:disabled{ opacity:0.5; cursor:default; }
 </style>
 </head>
 
@@ -208,20 +233,32 @@
     </div>
 
     <div id="authGate">
-      <div class="auth-card">
-        <div class="auth-brand">
-          <div class="title">P·D·S</div>
-          <div class="subtitle">PLAN · DO · SEE</div>
-        </div>
-        <div class="auth-body">
-          <div class="tabs" style="margin-bottom:16px;">
-            <button class="tab active" id="auth-tab-login" onclick="setAuthMode('login')">로그인</button>
-            <button class="tab" id="auth-tab-signup" onclick="setAuthMode('signup')">가입</button>
+      <div class="auth-spine">
+        <span class="ring"></span>
+        <span class="ring"></span>
+        <span class="ring"></span>
+        <span class="ring"></span>
+        <span class="ring"></span>
+      </div>
+      <div class="auth-stage">
+        <div class="auth-card">
+          <div class="auth-brand">
+            <div class="title">P·D·S</div>
+            <div class="subtitle">PLAN · DO · SEE</div>
           </div>
-          <div class="field-group"><label>이메일</label><input id="auth-email" type="email" autocomplete="username"></div>
-          <div class="field-group"><label>비밀번호</label><input id="auth-password" type="password" autocomplete="current-password"></div>
+
+          <div class="auth-field-label">ID</div>
+          <input id="auth-email" class="auth-input" type="email" autocomplete="username">
+
+          <div class="auth-field-label">PW</div>
+          <input id="auth-password" class="auth-input" type="password" autocomplete="current-password">
+
           <div id="authError" class="auth-error"></div>
-          <button class="btn btn-dark" id="authSubmitBtn" style="width:100%; justify-content:center;" onclick="submitAuth(this)">로그인</button>
+
+          <div class="auth-actions">
+            <button class="auth-btn-primary" id="authLoginBtn" onclick="submitAuth('login', this)">로그인</button>
+            <button class="auth-btn-secondary" id="authSignupBtn" onclick="submitAuth('signup', this)">회원가입</button>
+          </div>
         </div>
       </div>
     </div>
@@ -238,6 +275,6 @@
   const SUPABASE_ANON_KEY = "sb_publishable_szvYK65O-J59c-IKit03sg_JZyXIbe3";
   // ===============================
 </script>
-<script src="app.js?v=36"></script>
+<script src="app.js?v=37"></script>
 </body>
 </html>
