@@ -977,6 +977,7 @@ function renderLogs() {
   const orderedDates = Object.keys(groups).sort((a, b) => a < b ? 1 : -1);
 
   const body = orderedDates.map(dateKey => {
+    const dayTotalMin = groups[dateKey].reduce((s, l) => s + (l.actual_minutes || 0), 0);
     const items = groups[dateKey].map(l => {
       const todo = l.todos || {};
       const plan = todo.plans || {};
@@ -996,12 +997,23 @@ function renderLogs() {
       </div>`;
     }).join('');
     return `<div style="margin-bottom:16px;">
-      <div style="font-size:12px; color:var(--muted); margin-bottom:8px; border-bottom:1px solid var(--pill-bg); padding-bottom:4px;">${dateKey}</div>
+      <div class="row" style="margin-bottom:8px; border-bottom:1px solid var(--pill-bg); padding-bottom:4px;">
+        <span style="font-size:12px; color:var(--muted);" class="grow">${dateKey}</span>
+        <span style="font-size:12px; color:var(--muted);">그날 합계 ${dayTotalMin}분</span>
+      </div>
       ${items}
     </div>`;
   }).join('');
 
-  return filterHtml + streakHtml + body;
+  const grandTotalMin = logs.reduce((s, l) => s + (l.actual_minutes || 0), 0);
+  const dayCount = orderedDates.length;
+  const avgMin = dayCount ? Math.round((grandTotalMin / dayCount) * 10) / 10 : 0;
+  const summaryHtml = `<div class="info-card" style="margin-bottom:14px;">
+    <div class="small-muted" style="margin-bottom:4px;">지금 이 목록(위 필터 기준) 전체</div>
+    <div style="font-size:14px;">총 ${grandTotalMin}분 · 기록 있는 날 ${dayCount}일 · 하루 평균 ${avgMin}분</div>
+  </div>`;
+
+  return filterHtml + streakHtml + summaryHtml + body;
 }
 
 function onLogsFilterChange(v) { state.logsPlanFilter = v; render(); }
@@ -1378,8 +1390,33 @@ function renderSettings() {
     <div class="info-card" style="margin-bottom:14px;">
       <div><span class="k">로그인 계정</span> &nbsp; ${escapeHtml(currentUser ? currentUser.email : '')}</div>
     </div>
-    <button class="btn btn-dark" onclick="exportAllData()"><i class="ti ti-download"></i> 내 자료 내보내기</button>
+    <div style="margin-bottom:16px;">
+      <button class="btn btn-dark" onclick="exportAllData()"><i class="ti ti-download"></i> 내 자료 내보내기</button>
+    </div>
+    <div style="border-top:1px solid var(--pill-bg); padding-top:14px;">
+      <div class="small-muted" style="margin-bottom:8px;">계정을 지우면 계획·할일·실행기록 등 내 자료가 전부 삭제됩니다(되돌릴 수 없음). 로그인 정보(이메일/비밀번호) 자체는 별도 요청 없이는 남아있어요 — 이건 관리자 권한이 필요한 작업이라 이 화면에서는 처리하지 않습니다.</div>
+      <button class="icon-btn danger" style="width:auto; padding:8px 16px; gap:6px;" onclick="confirmDeleteAccountData()"><i class="ti ti-trash"></i> 내 자료 전체 삭제</button>
+    </div>
   `;
+}
+
+function confirmDeleteAccountData() {
+  pdsConfirm('정말로 내 자료(계획·할일·실행기록·리뷰 등)를 전부 지울까요? 되돌릴 수 없어요.', async () => {
+    pdsLoadingStart();
+    const tables = ['execution_logs', 'plan_history', 'todos', 'reviews', 'period_reviews', 'plans'];
+    let hadError = false;
+    for (const t of tables) {
+      const { error } = await sb.from(t).delete().eq('user_id', currentUser.id);
+      if (error) { hadError = true; console.error(t, error); }
+    }
+    pdsLoadingEnd();
+    if (hadError) {
+      pdsAlert('일부 자료 삭제 중 오류가 있었어요. 콘솔을 확인해주세요.');
+    } else {
+      pdsAlert('내 자료가 모두 삭제됐어요. 로그아웃할게요.');
+      await sb.auth.signOut();
+    }
+  });
 }
 
 async function exportAllData() {
