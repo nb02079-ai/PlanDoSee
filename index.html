@@ -66,9 +66,10 @@
   }
   .content-area{ flex:1; min-height:0; overflow-y:auto; padding:24px 32px; position:relative; }
   .fab-btn{
-    position:absolute; right:28px; bottom:28px; width:52px; height:52px; border-radius:50%;
+    position:fixed; right:28px; bottom:28px; width:52px; height:52px; border-radius:50%;
     background:var(--ink); display:flex; align-items:center; justify-content:center;
     box-shadow:0 4px 14px rgba(0,0,0,0.25); cursor:pointer; border:none; color:#FFFFFF; font-size:24px;
+    z-index:100;
   }
   .notice{
     background:var(--peach-bg); color:var(--peach-fg); border-radius:14px;
@@ -275,6 +276,6 @@
   const SUPABASE_ANON_KEY = "sb_publishable_szvYK65O-J59c-IKit03sg_JZyXIbe3";
   // ===============================
 </script>
-<script src="app.js?v=52"></script>
+<script src="app.js?v=53"></script>
 </body>
 </html>
