@@ -545,8 +545,8 @@ function renderCalendar() {
     shown.forEach(t => {
       const c = COLORS[(t.plans && t.plans.color) || 'mint'];
       const icon = t.status === 'done'
-        ? `<i class="ti ti-check" style="font-size:9px;color:${c.fg}"></i>`
-        : `<i class="ti ti-x" style="font-size:9px;color:var(--faint)"></i>`;
+        ? `<i class="ti ti-check" style="font-size:11px;color:${c.fg}"></i>`
+        : `<i class="ti ti-x" style="font-size:11px;color:var(--faint)"></i>`;
       chips += `<div class="chip" style="background:${c.bg};color:${c.fg}"><span>${escapeHtml(t.title)}</span>${icon}</div>`;
     });
     if (extra > 0) chips += `<div class="small-muted" style="margin-top:1px;">+${extra}</div>`;
@@ -563,12 +563,14 @@ function renderCalendar() {
         <div>${goalsHtml}</div>
       </div>`
     : '';
-  return `${topRowHtml}<div class="row" style="justify-content:space-between; margin-bottom:10px;">
+  return `${topRowHtml}<div style="border:1px solid #E5E5E3; border-radius:14px; padding:18px 20px; box-shadow:0 2px 12px rgba(0,0,0,0.05);">
+    <div class="row" style="justify-content:space-between; margin-bottom:14px;">
       <button class="btn btn-ghost" aria-label="이전 달" onclick="shiftMonth(-1)"><i class="ti ti-chevron-left"></i></button>
-      <div style="font-size:14px;">${monthLabel}</div>
+      <div style="font-size:16px; font-weight:600;">${monthLabel}</div>
       <button class="btn btn-ghost" aria-label="다음 달" onclick="shiftMonth(1)"><i class="ti ti-chevron-right"></i></button>
     </div>
-    ${grid}`;
+    ${grid}
+  </div>`;
 }
 
 function prioRank(p) { return p === 'high' ? 1 : p === 'medium' ? 2 : 3; }
