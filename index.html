@@ -250,10 +250,10 @@
     </div>
     <div class="auth-body">
       <div class="auth-field-label">ID</div>
-      <input id="auth-email" class="auth-input" type="email" autocomplete="username">
+      <input id="auth-email" class="auth-input" type="email" autocomplete="username" onkeydown="if(event.key==='Enter'){document.getElementById('auth-password').focus();}">
 
       <div class="auth-field-label">PW</div>
-      <input id="auth-password" class="auth-input" type="password" autocomplete="current-password">
+      <input id="auth-password" class="auth-input" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter'){document.getElementById('authLoginBtn').click();}">
 
       <div id="authError" class="auth-error"></div>
 
@@ -275,6 +275,6 @@
   const SUPABASE_ANON_KEY = "sb_publishable_szvYK65O-J59c-IKit03sg_JZyXIbe3";
   // ===============================
 </script>
-<script src="app.js?v=50"></script>
+<script src="app.js?v=51"></script>
 </body>
 </html>
