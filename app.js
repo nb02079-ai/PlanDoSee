@@ -360,6 +360,7 @@ async function createReview(payload) {
 
 // ---------- 탭 전환 ----------
 const TAB_LABELS = { calendar: '달력', plans: '계획', todos: '할일', review: '돌아보기', settings: '설정' };
+const TAB_ICONS = { calendar: 'ti-calendar', plans: 'ti-target-arrow', todos: 'ti-checklist', review: 'ti-chart-bar', settings: 'ti-settings' };
 
 async function switchTab(tab) {
   state.tab = tab;
@@ -367,7 +368,7 @@ async function switchTab(tab) {
   const navEl = document.getElementById('nav-' + tab);
   if (navEl) navEl.classList.add('active');
   const topbar = document.getElementById('topbarTitle');
-  if (topbar) topbar.textContent = TAB_LABELS[tab] || '';
+  if (topbar) topbar.innerHTML = `<i class="ti ${TAB_ICONS[tab] || ''}" style="font-size:16px; margin-right:8px; color:var(--muted);"></i>${TAB_LABELS[tab] || ''}`;
   await refreshAndRender();
 }
 
